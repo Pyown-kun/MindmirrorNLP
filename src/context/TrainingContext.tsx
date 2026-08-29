@@ -1,7 +1,9 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Step, TrainingSession } from '../types/training';
 import { createEmptySession } from '../types/training';
 import { useLanguage } from './LanguageContext';
+import { usePrivacy } from './PrivacyContext';
+import { loadTrainingData, saveTrainingData } from '../services/privacy';
 
 const STEP_ORDER: Step[] = [
   'welcome',
@@ -35,11 +37,21 @@ const TrainingContext = createContext<TrainingContextValue | undefined>(undefine
 
 export const TrainingProvider = ({ children }: { children: ReactNode }) => {
   const { language } = useLanguage();
+  const { hasConsent } = usePrivacy();
+  const stored = hasConsent ? loadTrainingData<TrainingSession>() : null;
   const [step, setStep] = useState<Step>('welcome');
   const [session, setSession] = useState<TrainingSession>(() => ({
-    ...createEmptySession(),
+    ...(stored?.session ?? createEmptySession()),
     language,
+    // Names are intentionally not restored from browser storage.
+    userName: '',
   }));
+
+  useEffect(() => {
+    if (hasConsent) {
+      saveTrainingData(session, step);
+    }
+  }, [hasConsent, session, step]);
 
   const value = useMemo<TrainingContextValue>(
     () => ({

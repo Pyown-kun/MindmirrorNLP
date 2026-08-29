@@ -1,4 +1,6 @@
 import { LanguageProvider } from './context/LanguageContext';
+import { PrivacyProvider } from './context/PrivacyContext';
+import { PrivacyNotice } from './components/PrivacyNotice';
 import { TrainingProvider, useTraining } from './context/TrainingContext';
 import { Welcome } from './pages/Welcome';
 import { NameInput } from './pages/NameInput';
@@ -61,9 +63,12 @@ const StepRouter = () => {
 function App() {
   return (
     <LanguageProvider>
-      <TrainingProvider>
-        <StepRouter />
-      </TrainingProvider>
+      <PrivacyProvider>
+        <TrainingProvider>
+          <StepRouter />
+          <PrivacyNotice />
+        </TrainingProvider>
+      </PrivacyProvider>
     </LanguageProvider>
   );
 }

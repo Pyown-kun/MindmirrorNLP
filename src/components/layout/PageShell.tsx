@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { LanguageSelector } from '../LanguageSelector';
 import { ProgressStepper } from '../ProgressStepper';
 import { useTraining } from '../../context/TrainingContext';
+import { usePrivacy } from '../../context/PrivacyContext';
 
 interface PageShellProps {
   children: ReactNode;
@@ -11,6 +12,7 @@ interface PageShellProps {
 
 export const PageShell = ({ children, wide = false, showBrand = false }: PageShellProps) => {
   const { step } = useTraining();
+  const { openNotice } = usePrivacy();
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-mist">
@@ -28,7 +30,16 @@ export const PageShell = ({ children, wide = false, showBrand = false }: PageShe
         ) : (
           <div className="hidden sm:block" />
         )}
-        <LanguageSelector compact />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={openNotice}
+            className="hidden rounded-full px-3 py-2 text-xs font-semibold text-muted transition hover:bg-white hover:text-ink sm:inline-flex"
+          >
+            Privasi & Data
+          </button>
+          <LanguageSelector compact />
+        </div>
       </header>
 
       {step !== 'welcome' && (

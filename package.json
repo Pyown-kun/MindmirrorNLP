@@ -7,9 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview",
-    "buildCommand": "npm run build",
-    "outputDirectory": "dist"
+    "preview": "vite preview"
   },
   "dependencies": {
     "lucide-react": "^1.37.0",

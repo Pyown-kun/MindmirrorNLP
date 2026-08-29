@@ -219,3 +219,14 @@ model later is a two-file change.
 - MindMirror is a communication-training tool, not a psychological,
   medical, or personality-diagnostic instrument, and its copy is written
   to avoid implying otherwise.
+
+## Privacy & GDPR-style controls
+
+MindMirror includes an opt-in privacy notice and local data controls:
+- Training data is stored locally only after consent.
+- The user's name is intentionally excluded from browser persistence.
+- Stored training data expires automatically after 90 days.
+- Users can open **Privasi & Data** at any time and delete stored training data.
+- No profiling, advertising, or data-selling functionality is included.
+- The current AI services are rule-based and run without an external API.
+
