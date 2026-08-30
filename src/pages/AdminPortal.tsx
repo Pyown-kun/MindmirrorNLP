@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react';
 import { ArrowLeft, Check, Globe2, LockKeyhole, LogOut, Save, ShieldCheck, RotateCcw, Languages } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
 import { getCurriculum, resetCurriculum, saveCurriculum, type Curriculum } from '../curriculum';
 import type { Language, TrainingType } from '../types/training';
 
