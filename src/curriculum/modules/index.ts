@@ -95,5 +95,36 @@ export const curriculumModules: CurriculumModule[] = [
   }),
 ];
 
-export const getCurriculumModule = (id: string | null): CurriculumModule => curriculumModules.find((m) => m.id === id) ?? curriculumModules[0];
+/**
+ * Resolve the module used by the participant app.
+ *
+ * Curriculum Builder stores published modules in localStorage. The participant
+ * experience must read that published copy (including its interaction.stages)
+ * instead of always falling back to the bundled seed curriculum.
+ */
+export const getCurriculumModule = (id: string | null): CurriculumModule => {
+  const fallback = curriculumModules.find((m) => m.id === id) ?? curriculumModules[0];
+
+  if (typeof window === 'undefined') return fallback;
+
+  try {
+    const raw = window.localStorage.getItem('mindmirror-curriculum-v1');
+    if (!raw) return fallback;
+
+    const managed = JSON.parse(raw) as Array<
+      CurriculumModule & { status?: 'draft' | 'published' }
+    >;
+
+    const published = managed.find(
+      (module) =>
+        module.id === id &&
+        module.status === 'published' &&
+        module.available
+    );
+
+    return published ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
 export const localize = (value: LocalizedText, language: Language) => value[language] || value.en;

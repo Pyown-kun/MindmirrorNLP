@@ -9,8 +9,6 @@ import { roleplayService } from '../services/ai';
 import type { RoleplayMessage } from '../types/training';
 import { getCurriculumModule, localize } from '../curriculum/modules';
 
-const MIN_EXCHANGES = 4;
-const MAX_EXCHANGES = 6;
 
 export const Roleplay = () => {
   const { t, language } = useLanguage();
@@ -22,7 +20,9 @@ export const Roleplay = () => {
   const character = module.scenario.characters[0];
   const characterName = localize(character.name, language);
   const characterRole = localize(character.role, language);
-  const stageCount = Math.max(module.interaction.stages.length, 2);
+  // One user turn = one curriculum interaction stage. Never add a fixed
+  // number of exchanges because that causes stages to repeat.
+  const interactionCount = module.interaction.stages.length;
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -40,7 +40,7 @@ export const Roleplay = () => {
   }, []);
 
   const userTurns = messages.filter((m) => m.speaker === 'user').length;
-  const finished = userTurns >= MAX_EXCHANGES;
+  const finished = interactionCount === 0 || userTurns >= interactionCount;
 
   const handleSend = () => {
     if (!input.trim() || finished) return;
@@ -60,7 +60,7 @@ export const Roleplay = () => {
         characterRole,
         situation: localize(module.scenario.context, language),
         language,
-        stage: Math.min(userTurns, stageCount - 1),
+        stage: userTurns,
         moduleId: session.moduleId ?? undefined,
       },
       updated
@@ -88,7 +88,7 @@ export const Roleplay = () => {
           <div className="ml-auto text-right text-xs text-muted">
             <p className="font-semibold uppercase tracking-wide">{language === 'id' ? 'Interaksi' : language === 'nl' ? 'Uitwisseling' : 'Exchange'}</p>
             <p className="font-mono-num">
-              {Math.min(userTurns, MAX_EXCHANGES)} / {MAX_EXCHANGES}
+              {Math.min(userTurns, interactionCount)} / {interactionCount}
             </p>
           </div>
         </div>
@@ -107,7 +107,7 @@ export const Roleplay = () => {
           disabled={finished}
         />
 
-        {userTurns >= MIN_EXCHANGES && (
+        {interactionCount > 0 && userTurns >= interactionCount && (
           <div className="mt-5">
             {finished && <p className="mb-3 text-sm text-aqua">{language === 'id' ? 'Roleplay selesai — sekarang lihat kembali apa yang terjadi.' : language === 'nl' ? 'Rollenspel voltooid — kijk nu terug op wat er gebeurde.' : 'Roleplay complete — now look back at what happened.'}</p>}
             <Button onClick={handleFinish} fullWidth className="sm:w-auto sm:px-10">
