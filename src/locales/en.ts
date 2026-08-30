@@ -17,6 +17,9 @@ const en = {
     send: 'Send',
     typeYourReply: 'Type your reply…',
     detected: 'Detected',
+
+     usageContext: 'Usage Context',
+  trainerRole: 'The trainer will guide you through this situation and provide feedback based on your response.',
   },
   stepper: {
     reflect: 'Experience',

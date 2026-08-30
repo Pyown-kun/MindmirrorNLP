@@ -19,6 +19,9 @@ const id: Locale = {
     send: 'Kirim',
     typeYourReply: 'Ketik balasan Anda…',
     detected: 'Terdeteksi',
+
+    usageContext: 'Konteks Penggunaan',
+trainerRole: 'Trainer akan memandu Anda melalui situasi ini dan memberikan umpan balik berdasarkan respons Anda.',
   },
   stepper: {
     reflect: 'Pengalaman',

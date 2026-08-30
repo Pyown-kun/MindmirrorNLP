@@ -19,6 +19,9 @@ const nl: Locale = {
     send: 'Verstuur',
     typeYourReply: 'Typ je antwoord…',
     detected: 'Gedetecteerd',
+
+    usageContext: 'Gebruikscontext',
+trainerRole: 'De trainer begeleidt je door deze situatie en geeft feedback op basis van je reactie.',
   },
   stepper: {
     reflect: 'Ervaring',
