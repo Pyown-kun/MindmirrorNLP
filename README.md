@@ -2,251 +2,221 @@
 
 **Think Better. Speak Better.**
 
-MindMirror is an interactive communication-training demo inspired by NLP
-(Neuro-Linguistic Programming) reflection concepts. It turns a communication
-training session into a short, structured, and practical digital experience:
+MindMirror is a reusable experiential-learning framework for professional communication training. The product is intentionally not centered on “an AI chatbot that analyzes communication and gives a score”. The primary journey is:
 
-```
-REFLECT → REFRAME → ROLEPLAY → ANALYSIS → RESULT
+```text
+EXPERIENCE → INTERACTION → SELF-RECOGNITION → REFLECTION → AHA MOMENT → PRACTICAL TAKEAWAY
 ```
 
-Built as a hackathon prototype, MindMirror runs **entirely offline** — no
-external AI API key is required. All "AI" behavior (mindset analysis,
-roleplay responses, communication scoring) is powered by a transparent,
-rule-based engine, designed behind a clean interface so it can be swapped
-for a real LLM later without touching any page or component.
+Participants first experience a realistic situation, interact with it, look back at their own words, reflect, identify an insight, and leave with a practical action. Numeric communication indicators remain available only as secondary training signals.
 
----
+## Architecture
 
-## Features
+```text
+MINDMIRROR PLATFORM
+├── EXPERIENCE ENGINE
+│   ├── Navigation / session flow
+│   ├── Scenario rendering
+│   ├── Roleplay interaction
+│   ├── Reflection comparison
+│   └── Aha-moment support
+│
+└── CURRICULUM ENGINE
+    ├── Modules
+    ├── Scenarios / characters
+    ├── Interaction stages
+    ├── Pattern rules
+    ├── Reflection questions
+    ├── Aha prompts
+    └── Practical takeaways
+```
 
-- **16-step guided flow**: Welcome → Name → Training Selection → Situation →
-  Mirror (emotion) → Initial Thought → Mindset Analysis → Reframe →
-  Perspective Shift → Roleplay → Analyzing → Result → Skill Breakdown →
-  NLP Insights → Before/After Journey → Training Complete.
-- **Simple AI Analysis Engine**: rule-based detection of generalizations,
-  judgments/labels, and mind-reading assumptions, in three languages.
-- **Simple Roleplay Engine**: a scripted-but-reactive conversation partner
-  ("Alex") that responds differently to clarifying questions, empathetic
-  language, and specific follow-ups, with sensible fallbacks for anything
-  else the user types.
-- **Transparent scoring**: Empathy, Specificity, Clarity, NLP Practice, and
-  Self-Awareness scores (0–100) computed from what the user actually wrote
-  and did — no hidden/fake numbers.
-- **Full trilingual support**: English 🇬🇧, Bahasa Indonesia 🇮🇩, and
-  Nederlands 🇳🇱 — every screen, button, question, and generated result.
-- **Fully responsive**: mobile-first layout, tested conceptually from
-  375px up to 1440px, with a compact stepper on mobile and a horizontal
-  stepper on desktop.
-- **Extensible AI architecture**: `AIAnalysisService` and `RoleplayService`
-  interfaces so future OpenAI / Claude / Gemini / local-LLM implementations
-  can be dropped in with a one-line swap.
+The engine is reusable; curriculum data is replaceable.
 
----
+## Project structure
 
-## Technology Stack
+```text
+src/
+├── curriculum/
+│   ├── curriculum.types.ts
+│   └── modules/
+│       └── index.ts                 # curriculum configuration
+├── engine/
+│   ├── ExperienceEngine.ts          # scenario + interaction engine
+│   ├── ReflectionEngine.ts          # before/after comparison
+│   └── AhaMomentEngine.ts           # self-recognition support
+├── services/ai/
+│   ├── AIService.ts                 # abstraction interfaces
+│   ├── SimpleAnalysisService.ts     # offline rule-based analysis
+│   ├── SimpleRoleplayService.ts     # curriculum-driven roleplay
+│   └── index.ts                     # implementation swap point
+├── pages/
+│   ├── TrainingSelection.tsx        # Experience Library
+│   ├── ModuleIntro.tsx
+│   ├── Roleplay.tsx
+│   ├── LookBack.tsx
+│   ├── Reflection.tsx
+│   ├── AhaMoment.tsx
+│   ├── Takeaway.tsx
+│   └── ResultDetails.tsx             # optional skill indicators
+├── types/training.ts
+├── locales/en.ts / id.ts / nl.ts
+└── App.tsx
+```
 
-| Layer          | Choice                                   |
-|----------------|-------------------------------------------|
-| Framework      | React 19 + TypeScript                     |
-| Build tool     | Vite                                      |
-| Styling        | Tailwind CSS v4                           |
-| Icons          | lucide-react                              |
-| State          | React Context (`LanguageContext`, `TrainingContext`) |
-| AI Engine      | Custom rule-based `SimpleAnalysisService` / `SimpleRoleplayService` |
+## Learning flow
 
-No backend, database, or API key is required for the demo.
+```text
+WELCOME
+  ↓
+NAME
+  ↓
+EXPERIENCE LIBRARY
+  ↓
+MODULE INTRODUCTION
+  ↓
+MODULE SCENARIO
+  ↓
+ROLEPLAY / RESPONSE
+  ↓
+LOOK BACK
+  ↓
+REFLECTION
+  ↓
+AHA MOMENT
+  ↓
+PRACTICAL TAKEAWAY
+  ↓
+OPTIONAL SKILL INSIGHTS
+  ↓
+COMPLETE
+```
 
----
+Patterns are deliberately not taught as definitions before the interaction. The participant sees the pattern emerge through the conversation and only then reflects on it.
 
-## Installation & Running
+## How to add a new curriculum module
+
+Open `src/curriculum/modules/index.ts` and add another `CurriculumModule` configuration. A module defines:
+
+1. `id`, title, description, learning objective, category, difficulty and duration.
+2. `scenario` — title, context, characters and opening message.
+3. `interaction.stages` — prompts, expected interaction types and reactive replies.
+4. `patternRules` — language-specific keyword groups and detection mode.
+5. `reflection` — reflection questions and comparison prompts.
+6. `ahaMoment` — trigger, participant prompt and educational insight.
+7. `takeaway` — practical challenge and real-world prompt.
+
+Every localized text field contains `en`, `id`, and `nl`, so the same engine can render all supported languages.
+
+The intended workflow is:
+
+```text
+NEW CURRICULUM CONTENT
+        ↓
+MODULE CONFIGURATION
+        ↓
+EXPERIENCE ENGINE
+        ↓
+NEW LEARNING EXPERIENCE
+```
+
+No core page needs to be rewritten for a normal new module.
+
+## Current sample curriculum
+
+- **Language & Specificity** — broad statements become concrete through questioning.
+- **Perspective & Reframing** — participants separate observable behavior from labels and assumptions.
+- **New Module** — an intentionally unavailable template demonstrating where future curriculum content can be configured.
+
+The previous “Give Feedback” concept is no longer the top-level architecture. Communication scenarios can exist inside modules.
+
+## Simple AI Analysis
+
+The demo remains fully offline and uses `SimpleAnalysisService`. It supports:
+
+- pattern detection;
+- interaction comparison;
+- reflection support;
+- aha-moment support;
+- practical-takeaway support;
+- secondary communication indicators.
+
+The pattern detector uses transparent language-specific rules. It is an educational heuristic, not a scientific or psychological measurement.
+
+The existing AI abstraction remains in `src/services/ai/AIService.ts`, so a future OpenAI, Claude, Gemini, or local-model implementation can replace the simple service without changing the experience pages.
+
+## Language system
+
+English, Bahasa Indonesia, and Nederlands are supported throughout the revised experience. Curriculum content is localized in the curriculum data itself; UI labels remain in the locale files.
+
+## Responsive design
+
+The existing mobile-first Tailwind styling is preserved. The revised experience uses responsive grids and stacked comparison cards so that long translated content remains readable on mobile, tablet, laptop and desktop widths without horizontal overflow.
+
+## Installation & running
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open the printed local URL (typically `http://localhost:5173`).
-
-To build a production bundle:
+Production build:
 
 ```bash
 npm run build
 npm run preview
 ```
 
----
+No external API key or backend is required for the demo.
 
-## Project Structure
+## Important implementation decisions
 
-```
-src/
-├── components/
-│   ├── ui/                    # Button, MirrorPane, Fields (Input/TextArea)
-│   ├── layout/PageShell.tsx   # Shared header + stepper + centered content
-│   ├── LanguageSelector.tsx
-│   ├── ProgressStepper.tsx
-│   ├── ProgressBar.tsx
-│   ├── TrainingCard.tsx
-│   ├── AnalysisCard.tsx
-│   ├── RoleplayChat.tsx
-│   └── ScoreCard.tsx
-│
-├── pages/
-│   ├── Welcome.tsx
-│   ├── NameInput.tsx
-│   ├── TrainingSelection.tsx
-│   ├── SituationInput.tsx
-│   ├── MirrorPhase.tsx
-│   ├── InitialThought.tsx
-│   ├── Analysis.tsx
-│   ├── Reframe.tsx
-│   ├── PerspectiveShift.tsx
-│   ├── Roleplay.tsx
-│   ├── Analyzing.tsx
-│   ├── TrainingResult.tsx
-│   ├── ResultDetails.tsx
-│   ├── NLPInsights.tsx
-│   ├── BeforeAfter.tsx
-│   └── TrainingComplete.tsx
-│
-├── services/ai/
-│   ├── AIService.ts            # AIAnalysisService & RoleplayService interfaces
-│   ├── SimpleAnalysisService.ts
-│   ├── SimpleRoleplayService.ts
-│   └── index.ts                 # Active-implementation factory (swap point)
-│
-├── locales/
-│   ├── en.ts / id.ts / nl.ts
-│   └── index.ts
-│
-├── context/
-│   ├── LanguageContext.tsx
-│   └── TrainingContext.tsx
-│
-├── types/training.ts            # TrainingSession & related domain types
-├── utils/
-│   ├── analysisRules.ts         # Keyword tables per language
-│   └── scoring.ts                # Score blending + insight selection
-└── App.tsx
-```
+- Existing React + TypeScript + Vite + Tailwind stack is preserved.
+- Existing session, language, privacy, roleplay, responsive UI and scoring capabilities are reused.
+- The experience flow no longer asks the participant to enter `Who are you talking to? / What happened?` or `What is your first thought about this person?`; the module scenario supplies the context and the participant's first roleplay response becomes the baseline for later reflection.
+- Scores are shown only after the participant has reached the reflection, aha moment and practical takeaway.
+- Curriculum data owns module-specific content, while the engine owns reusable behavior.
 
----
+## Admin / Curriculum Management Portal
 
-## The Simple AI Analysis Engine
+MindMirror now includes a CMS-style Admin Portal at `/admin` with a login gate. It turns curriculum authoring from a developer-only JSON/TypeScript workflow into a trainer-facing content workflow:
 
-The engine is rule-based, transparent, and requires no external model:
+`Admin Dashboard → Create/Edit Module → Preview → Save Draft / Publish → Participant Experience Library`
 
-1. **Mindset analysis** (`analyzeMindset`) scans the user's free-text
-   "first thought" for three pattern types, using per-language keyword
-   lists in `utils/analysisRules.ts`:
-   - **Generalization** — "always", "never", "everyone"… (`selalu`,
-     `tidak pernah`… / `altijd`, `nooit`…)
-   - **Judgment / Labeling** — "lazy", "stupid", "doesn't care"… (`malas`,
-     `bodoh`… / `lui`, `dom`…)
-   - **Assumption / Mind Reading** — "he thinks", "obviously"… (`dia
-     pikir`, `pasti`… / `hij denkt`, `duidelijk`…)
+The builder covers Basic Information, Scenario, Interaction Stages, Pattern Rules, Reflection, Aha Moment, Takeaway, and Review & Publish. English, Bahasa Indonesia, and Nederlands can be authored independently.
 
-   Each match is attributed to the sentence it came from and shown as an
-   `AnalysisCard` with an explanation and improvement tip. If nothing is
-   detected, the user gets positive, non-judgmental feedback instead.
+### MVP persistence
 
-2. **Conversation analysis** (`analyzeConversation`) looks at the user's
-   roleplay messages and computes five 0–100 scores from measurable
-   signals: presence of empathy language, clarifying questions, average
-   sentence length / question usage, avoidance of generalizations and
-   labels, and completion of the earlier reflection/reframe steps
-   (blended in `utils/scoring.ts`). Nothing here is a psychological
-   diagnosis — it is a communication-training heuristic, and the UI is
-   careful to say so.
+For the demo, curriculum management uses browser `localStorage` as a mock database. Published modules are automatically read by the participant Experience Library, while drafts remain unavailable to participants. This keeps the demo self-contained and requires no external API.
 
-3. **Roleplay logic** (`SimpleRoleplayService`) matches the user's message
-   against clarifying/empathy keyword lists and picks from four
-   predefined conversation stages per language, with a graceful fallback
-   line if nothing matches.
+### Adding a curriculum module
 
----
+1. Open `/admin`.
+2. Sign in with the demo admin account (`admin@mindmirror.demo` / `mindmirror`).
+3. Open the Admin / Curriculum Portal.
+2. Select **Create New Module**.
+3. Fill localized content for English, Indonesia, and Nederlands.
+4. Define the scenario and characters.
+5. Add interaction stages and response branches.
+6. Configure pattern rules and keywords.
+7. Add reflection questions and comparison prompts.
+8. Define the Aha Moment prompt and insight.
+9. Define the practical takeaway.
+10. Preview the experience.
+11. Save as Draft or Publish.
 
-## Replacing the Simple Engine with a Real AI Model
-
-The app depends only on two interfaces, defined in
-`src/services/ai/AIService.ts`:
-
-```typescript
-interface AIAnalysisService {
-  analyzeMindset(input: AnalysisInput): AnalysisResult;
-  analyzeConversation(messages: RoleplayMessage[], language: Language): CommunicationAnalysis;
-}
-
-interface RoleplayService {
-  startScenario(context: ScenarioContext): RoleplayMessage;
-  respond(context: ScenarioContext, messages: RoleplayMessage[]): RoleplayMessage;
-}
-```
-
-To integrate OpenAI, Claude, Gemini, a local model (Ollama, etc.), or any
-custom NLP service:
-
-1. Create a new file, e.g. `src/services/ai/ClaudeAnalysisService.ts`,
-   and implement `AIAnalysisService` by calling the real API instead of
-   keyword matching (same for `RoleplayService` in a
-   `ClaudeRoleplayService.ts`).
-2. Open `src/services/ai/index.ts` and swap the exported instance:
-
-   ```typescript
-   // Before
-   export const analysisService: AIAnalysisService = new SimpleAnalysisService();
-
-   // After
-   export const analysisService: AIAnalysisService = new ClaudeAnalysisService(apiKey);
-   ```
-
-3. Nothing else changes — every page imports `analysisService` /
-   `roleplayService` from this one module, so the rest of the app is
-   completely decoupled from which implementation is active.
-
-This makes MindMirror a genuine "swap-the-engine" architecture: the
-hackathon demo works fully offline today, and upgrading to a real AI
-model later is a two-file change.
-
----
-
-## Notes on Scope
-
-- Only the **Give Feedback** training scenario is fully implemented for
-  this MVP, per the brief. "Handle Conflict" and "Leadership Conversation"
-  are shown as selectable cards marked **Coming Soon**.
-- MindMirror is a communication-training tool, not a psychological,
-  medical, or personality-diagnostic instrument, and its copy is written
-  to avoid implying otherwise.
-
-## Privacy & GDPR-style controls
-
-MindMirror includes an opt-in privacy notice and local data controls:
-- Training data is stored locally only after consent.
-- The user's name is intentionally excluded from browser persistence.
-- Stored training data expires automatically after 90 days.
-- Users can open **Privasi & Data** at any time and delete stored training data.
-- No profiling, advertising, or data-selling functionality is included.
-- The current AI services are rule-based and run without an external API.
+Publishing makes the module available in the participant Training Library without changing the core Experience Engine.
 
 
-## Demo roles & protected curriculum editing
+## Admin Login
 
-The demo now has two roles:
+The CMS is available at `/admin`. Users are shown an Admin Sign In screen before the dashboard is rendered.
 
-- **User** — can run training, choose language and scenarios, but has no curriculum editing controls.
-- **Admin** — enters the protected `/admin` portal and can edit/publish curriculum content per language and training type.
-
-Demo admin credentials:
+For the demo, authentication is stored in `sessionStorage` and uses:
 
 - Email: `admin@mindmirror.demo`
-- Password: `Admin123!`
+- Password: `mindmirror`
 
-### Why `/admin` instead of an edit button for users?
+This is intentionally a local demo authentication layer. A production deployment should replace it with a secure backend or identity provider.
 
-The professional pattern is a separate admin portal with role-based access control. In production, `/admin` should be protected by SSO/OIDC and server-side authorization. The localStorage login in this demo is only a UX/prototype simulation and is **not** a security boundary.
-
-### Multilingual dialogue
-
-Curriculum is now stored independently for `en`, `id`, and `nl`. Participant-facing roleplay dialogue is loaded from the active language version, so changing the language before starting a training changes the scenario situation, character role, and every dialogue response consistently.
+After successful login, the user is redirected/reloaded into the Admin Dashboard. Signing out removes the admin session and returns to the participant application.

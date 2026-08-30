@@ -2,30 +2,14 @@ import { Check } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import type { Step } from '../types/training';
 
-const STAGE_STEPS: Step[] = [
-  'name',
-  'training-selection',
-  'situation',
-  'mirror',
-  'initial-thought',
-  'analysis',
-  'reframe',
-  'perspective-shift',
-  'roleplay',
-  'analyzing',
-  'result',
-  'result-details',
-  'nlp-insights',
-  'before-after',
-  'complete',
-];
+const STAGE_STEPS: Step[] = ['name','training-selection','module-intro','mirror','roleplay','look-back','reflection','aha','takeaway','analyzing','result-details','complete'];
 
 /** Maps every fine-grained step to one of the 5 headline stages shown in the stepper. */
 const stageOf = (step: Step): number => {
-  if (['name', 'training-selection', 'situation', 'mirror', 'initial-thought'].includes(step)) return 0;
-  if (['analysis', 'reframe', 'perspective-shift'].includes(step)) return 1;
-  if (['roleplay'].includes(step)) return 2;
-  if (['analyzing'].includes(step)) return 3;
+  if (['name','training-selection','module-intro','mirror'].includes(step)) return 0;
+  if (['roleplay'].includes(step)) return 1;
+  if (['look-back','reflection'].includes(step)) return 2;
+  if (['aha','takeaway'].includes(step)) return 3;
   return 4;
 };
 
@@ -38,7 +22,7 @@ export const ProgressStepper = ({ step }: ProgressStepperProps) => {
 
   if (!STAGE_STEPS.includes(step)) return null;
 
-  const labels = [t.stepper.reflect, t.stepper.reframe, t.stepper.roleplay, t.stepper.analysis, t.stepper.result];
+  const labels = [t.stepper.experience, t.stepper.interaction, t.stepper.lookBack, t.stepper.aha, t.stepper.insights];
   const currentStage = stageOf(step);
 
   return (

@@ -1,83 +1,26 @@
+import { useState } from 'react';
 import { LanguageProvider } from './context/LanguageContext';
-import { AuthProvider } from './context/AuthContext';
-import { AdminPortal } from './pages/AdminPortal';
-import { PrivacyProvider } from './context/PrivacyContext';
-import { PrivacyNotice } from './components/PrivacyNotice';
 import { TrainingProvider, useTraining } from './context/TrainingContext';
+import { PrivacyProvider } from './context/PrivacyContext';
+import { PrivacyConsent } from './components/PrivacyConsent';
 import { Welcome } from './pages/Welcome';
 import { NameInput } from './pages/NameInput';
 import { TrainingSelection } from './pages/TrainingSelection';
-import { SituationInput } from './pages/SituationInput';
+import { ModuleIntro } from './pages/ModuleIntro';
 import { MirrorPhase } from './pages/MirrorPhase';
-import { InitialThought } from './pages/InitialThought';
-import { Analysis } from './pages/Analysis';
-import { Reframe } from './pages/Reframe';
-import { PerspectiveShift } from './pages/PerspectiveShift';
 import { Roleplay } from './pages/Roleplay';
+import { LookBack } from './pages/LookBack';
+import { Reflection } from './pages/Reflection';
+import { AhaMoment } from './pages/AhaMoment';
+import { Takeaway } from './pages/Takeaway';
 import { Analyzing } from './pages/Analyzing';
-import { TrainingResult } from './pages/TrainingResult';
 import { ResultDetails } from './pages/ResultDetails';
-import { NLPInsights } from './pages/NLPInsights';
-import { BeforeAfter } from './pages/BeforeAfter';
 import { TrainingComplete } from './pages/TrainingComplete';
+import { AdminPortal } from './pages/AdminPortal';
+import { AdminLogin, isAdminAuthenticated } from './pages/AdminLogin';
 
-const StepRouter = () => {
-  const { step } = useTraining();
-
-  switch (step) {
-    case 'welcome':
-      return <Welcome />;
-    case 'name':
-      return <NameInput />;
-    case 'training-selection':
-      return <TrainingSelection />;
-    case 'situation':
-      return <SituationInput />;
-    case 'mirror':
-      return <MirrorPhase />;
-    case 'initial-thought':
-      return <InitialThought />;
-    case 'analysis':
-      return <Analysis />;
-    case 'reframe':
-      return <Reframe />;
-    case 'perspective-shift':
-      return <PerspectiveShift />;
-    case 'roleplay':
-      return <Roleplay />;
-    case 'analyzing':
-      return <Analyzing />;
-    case 'result':
-      return <TrainingResult />;
-    case 'result-details':
-      return <ResultDetails />;
-    case 'nlp-insights':
-      return <NLPInsights />;
-    case 'before-after':
-      return <BeforeAfter />;
-    case 'complete':
-      return <TrainingComplete />;
-    default:
-      return <Welcome />;
-  }
-};
-
-function App() {
-  const isAdminPortal = window.location.pathname.startsWith('/admin');
-  return (
-    <LanguageProvider>
-      <AuthProvider>
-        {isAdminPortal ? <AdminPortal /> : (
-          <PrivacyProvider>
-            <TrainingProvider>
-              <StepRouter />
-              <PrivacyNotice />
-            </TrainingProvider>
-          </PrivacyProvider>
-        )}
-      </AuthProvider>
-    </LanguageProvider>
-  );
-}
-
+const StepRouter=()=>{const {step}=useTraining();switch(step){case'welcome':return <Welcome/>;case'name':return <NameInput/>;case'training-selection':return <TrainingSelection/>;case'module-intro':return <ModuleIntro/>;case'mirror':return <MirrorPhase/>;case'roleplay':return <Roleplay/>;case'look-back':return <LookBack/>;case'reflection':return <Reflection/>;case'aha':return <AhaMoment/>;case'takeaway':return <Takeaway/>;case'analyzing':return <Analyzing/>;case'result-details':return <ResultDetails/>;case'complete':return <TrainingComplete/>;default:return <Welcome/>;}};
+function App(){return <LanguageProvider><TrainingProvider><AppMode/></TrainingProvider></LanguageProvider>}
+const AppMode=()=>window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/') ? (isAdminAuthenticated() ? <AdminPortal/> : <AdminLogin onLogin={() => window.location.reload()} />) : <PrivacyGate/>;
+const PrivacyGate=()=>{const[consented,setConsented]=useState(false);const[modalOpen,setModalOpen]=useState(true);const{resetSession}=useTraining();return <PrivacyProvider openPrivacy={()=>setModalOpen(true)}><div className={modalOpen&&!consented?'blur-sm':''}><StepRouter/></div>{modalOpen&&<PrivacyConsent showDeleteButton={consented} onContinue={()=>{setConsented(true);setModalOpen(false)}} onRequestClose={consented?()=>setModalOpen(false):undefined} onDeleteData={()=>resetSession()}/>}</PrivacyProvider>};
 export default App;

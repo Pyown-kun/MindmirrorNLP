@@ -1,0 +1,9 @@
+import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { PageShell } from '../components/layout/PageShell';
+import { MirrorPane } from '../components/ui/MirrorPane';
+import { Button } from '../components/ui/Button';
+import { useLanguage } from '../context/LanguageContext';
+import { useTraining } from '../context/TrainingContext';
+import { getCurriculumModule, localize } from '../curriculum/modules';
+
+export const Takeaway = () => { const {language}=useLanguage(); const {session,next}=useTraining(); const m=getCurriculumModule(session.moduleId); return <PageShell><MirrorPane><div className="flex items-center gap-3"><CheckCircle2 className="h-7 w-7 text-aqua"/><div><p className="text-sm font-semibold uppercase tracking-wide text-aqua">{localize(m.takeaway.title,language)}</p><h2 className="mt-1 font-display text-2xl font-bold text-ink">{localize(m.takeaway.practicalChallenge,language)}</h2></div></div><div className="mt-7 rounded-2xl bg-primary/5 p-5"><p className="text-xs font-bold uppercase tracking-wide text-primary">{language==='id'?'COBA DI DUNIA NYATA':language==='nl'?'PROBEER DIT IN DE PRAKTIJK':'TRY THIS IN REAL LIFE'}</p><p className="mt-2 font-display text-lg leading-relaxed text-ink">“{localize(m.takeaway.realWorldPrompt,language)}”</p></div><p className="mt-5 text-sm leading-relaxed text-muted">{language==='id'?'Ini adalah latihan praktis yang dapat Anda bawa ke percakapan berikutnya.':language==='nl'?'Dit is een praktische oefening die je kunt meenemen naar je volgende gesprek.':'This is a practical exercise you can carry into your next conversation.'}</p><div className="mt-8"><Button onClick={next} fullWidth className="sm:w-auto sm:px-10">{language==='id'?'Lihat Insight Opsional':language==='nl'?'Optionele inzichten':'See Optional Insights'} <ArrowRight className="h-4 w-4"/></Button></div></MirrorPane></PageShell>; };

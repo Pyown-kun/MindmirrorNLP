@@ -7,7 +7,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useTraining } from '../context/TrainingContext';
 import { roleplayService } from '../services/ai';
 import type { RoleplayMessage } from '../types/training';
-import { getCurriculum } from '../curriculum';
+import { getCurriculumModule, localize } from '../curriculum/modules';
 
 const MIN_EXCHANGES = 4;
 const MAX_EXCHANGES = 6;
@@ -18,21 +18,21 @@ export const Roleplay = () => {
   const [messages, setMessages] = useState<RoleplayMessage[]>(session.roleplayMessages);
   const [input, setInput] = useState('');
 
-  const curriculum = getCurriculum(language, session.trainingType ?? 'feedback');
-  const scenario = curriculum.scenarios.find((item) => item.id === session.scenarioId) ?? curriculum.scenarios[0];
-  const characterName = scenario.characterName;
-  const characterRole = scenario.characterRole;
+  const module = getCurriculumModule(session.moduleId);
+  const character = module.scenario.characters[0];
+  const characterName = localize(character.name, language);
+  const characterRole = localize(character.role, language);
+  const stageCount = Math.max(module.interaction.stages.length, 2);
 
   useEffect(() => {
     if (messages.length === 0) {
       const opening = roleplayService.startScenario({
         characterName,
         characterRole,
-        situation: scenario.situation,
+        situation: localize(module.scenario.context, language),
         language,
         stage: 0,
-        trainingType: session.trainingType ?? 'feedback',
-        scenarioId: scenario.id,
+        moduleId: session.moduleId ?? undefined,
       });
       setMessages([opening]);
     }
@@ -58,11 +58,10 @@ export const Roleplay = () => {
       {
         characterName,
         characterRole,
-        situation: scenario.situation,
+        situation: localize(module.scenario.context, language),
         language,
-        stage: userTurns,
-        trainingType: session.trainingType ?? 'feedback',
-        scenarioId: scenario.id,
+        stage: Math.min(userTurns, stageCount - 1),
+        moduleId: session.moduleId ?? undefined,
       },
       updated
     );
@@ -87,15 +86,14 @@ export const Roleplay = () => {
             <p className="text-sm text-muted">{characterRole}</p>
           </div>
           <div className="ml-auto text-right text-xs text-muted">
-            <p className="font-semibold uppercase tracking-wide">{t.roleplay.progressLabel}</p>
+            <p className="font-semibold uppercase tracking-wide">{language === 'id' ? 'Interaksi' : language === 'nl' ? 'Uitwisseling' : 'Exchange'}</p>
             <p className="font-mono-num">
               {Math.min(userTurns, MAX_EXCHANGES)} / {MAX_EXCHANGES}
             </p>
           </div>
         </div>
 
-        <p className="mb-2 rounded-2xl bg-mist px-4 py-3 text-sm text-muted">{scenario.situation}</p>
-        <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-primary">{curriculum.title} · {scenario.title}</p>
+        <p className="mb-4 rounded-2xl bg-mist px-4 py-3 text-sm text-muted">{localize(module.scenario.context, language)}</p>
 
         <RoleplayChat
           messages={messages}
@@ -111,9 +109,9 @@ export const Roleplay = () => {
 
         {userTurns >= MIN_EXCHANGES && (
           <div className="mt-5">
-            {finished && <p className="mb-3 text-sm text-aqua">{t.roleplay.endNote}</p>}
+            {finished && <p className="mb-3 text-sm text-aqua">{language === 'id' ? 'Roleplay selesai — sekarang lihat kembali apa yang terjadi.' : language === 'nl' ? 'Rollenspel voltooid — kijk nu terug op wat er gebeurde.' : 'Roleplay complete — now look back at what happened.'}</p>}
             <Button onClick={handleFinish} fullWidth className="sm:w-auto sm:px-10">
-              {t.roleplay.finish}
+              {language === 'id' ? 'Lihat Kembali Percakapan' : language === 'nl' ? 'Gesprek bekijken' : 'Look Back at Conversation'}
             </Button>
           </div>
         )}

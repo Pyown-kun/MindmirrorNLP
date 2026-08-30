@@ -8,6 +8,7 @@ import type {
   RoleplayMessage,
 } from '../../types/training';
 import type { AIAnalysisService } from './AIService';
+import { getCurriculumModule } from '../../curriculum/modules';
 import {
   CLARIFYING_KEYWORDS,
   EMPATHY_KEYWORDS,
@@ -28,9 +29,10 @@ export class SimpleAnalysisService implements AIAnalysisService {
     const { text, language } = input;
     const sentences = splitSentences(text);
     const patterns: DetectedPattern[] = [];
-    const keywordSet = PATTERN_KEYWORDS[language];
+    const moduleRules = getCurriculumModule(input.moduleId ?? null).patternRules.keywordGroups[language];
+    const keywordSet = moduleRules;
 
-    (Object.keys(keywordSet) as PatternType[]).forEach((type) => {
+    getCurriculumModule(input.moduleId ?? null).patternRules.rules.forEach((type) => {
       const keywords = keywordSet[type];
       sentences.forEach((sentence) => {
         const matches = findMatchedKeywords(sentence, keywords);
@@ -61,6 +63,19 @@ export class SimpleAnalysisService implements AIAnalysisService {
       patterns: deduped,
       isClean: deduped.length === 0,
     };
+  }
+
+  generateReflection(input: { initialThought: string; messages: RoleplayMessage[]; language: Language }): string {
+    const last = [...input.messages].reverse().find((m) => m.speaker === 'user')?.text ?? '';
+    return `${input.initialThought} → ${last}`;
+  }
+
+  generateAhaMoment(input: { initialThought: string; laterResponse: string; language: Language }): string {
+    return input.laterResponse.trim() ? `${input.initialThought} → ${input.laterResponse}` : input.initialThought;
+  }
+
+  generateTakeaway(input: { language: Language; moduleId?: string }): string {
+    return getCurriculumModule(input.moduleId ?? null).takeaway.practicalChallenge[input.language];
   }
 
   analyzeConversation(messages: RoleplayMessage[], language: Language): CommunicationAnalysis {

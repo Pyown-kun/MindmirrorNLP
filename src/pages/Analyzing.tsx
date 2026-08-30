@@ -17,6 +17,8 @@ export const Analyzing = () => {
 
   useEffect(() => {
     const conversationAnalysis = analysisService.analyzeConversation(session.roleplayMessages, language);
+    const firstUserMessage = session.roleplayMessages.find((message) => message.speaker === 'user')?.text ?? '';
+    const interactionPatternAnalysis = firstUserMessage ? analysisService.analyzeMindset({ text: firstUserMessage, language, moduleId: session.moduleId ?? undefined }) : null;
     const finalScores = computeFinalScores(session, conversationAnalysis);
     const flags = selectInsightFlags(session, finalScores);
 
@@ -44,7 +46,7 @@ export const Analyzing = () => {
     }
     insights.push({ kind: 'metaModel', title: t.nlpInsights.metaModelHeading, body: t.nlpInsights.metaModelBody });
 
-    updateSession({ communicationScores: finalScores, insights });
+    updateSession({ communicationScores: finalScores, insights, analysisResult: interactionPatternAnalysis });
 
     const stepTimer = setInterval(() => {
       setVisibleSteps((prev) => Math.min(prev + 1, steps.length));

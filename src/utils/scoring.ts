@@ -14,8 +14,8 @@ export const computeFinalScores = (
 ): CommunicationAnalysis => {
   let selfAwareness = conversationAnalysis.selfAwareness;
 
-  // Reflection completed (emotion + initial thought provided)
-  if (session.emotion && session.initialThought.trim().length > 0) {
+  // Reflection completed after the roleplay.
+  if (session.emotion && session.roleplayMessages.some((message) => message.speaker === 'user')) {
     selfAwareness += 10;
   }
   // Reframe completed with a meaningful positive perspective

@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Info } from 'lucide-react';
 import { PageShell } from '../components/layout/PageShell';
 import { MirrorPane } from '../components/ui/MirrorPane';
 import { Button } from '../components/ui/Button';
@@ -7,30 +7,6 @@ import { useLanguage } from '../context/LanguageContext';
 import { useTraining } from '../context/TrainingContext';
 
 export const ResultDetails = () => {
-  const { t } = useLanguage();
-  const { session, next } = useTraining();
-  const scores = session.communicationScores;
-
-  return (
-    <PageShell>
-      <MirrorPane>
-        <h2 className="font-display text-2xl font-bold text-ink sm:text-3xl">{t.resultDetails.heading}</h2>
-
-        <div className="mt-6 space-y-5">
-          <ProgressBar icon="🤝" label={t.resultDetails.empathy} value={scores?.empathy ?? 0} color="var(--color-primary)" />
-          <ProgressBar icon="🎯" label={t.resultDetails.specificity} value={scores?.specificity ?? 0} color="var(--color-aqua)" />
-          <ProgressBar icon="💬" label={t.resultDetails.clarity} value={scores?.clarity ?? 0} color="var(--color-amber)" />
-          <ProgressBar icon="🧠" label={t.resultDetails.nlpPractice} value={scores?.nlpPractice ?? 0} color="var(--color-primary-dark)" />
-          <ProgressBar icon="🪞" label={t.resultDetails.selfAwareness} value={scores?.selfAwareness ?? 0} color="var(--color-rose)" />
-        </div>
-
-        <div className="mt-8">
-          <Button onClick={next} fullWidth className="sm:w-auto sm:px-10">
-            {t.resultDetails.continueToInsights}
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </MirrorPane>
-    </PageShell>
-  );
+ const {t,language}=useLanguage(); const {session,next}=useTraining(); const scores=session.communicationScores;
+ return <PageShell><MirrorPane><p className="text-sm font-semibold uppercase tracking-wide text-primary">{language==='id'?'INSIGHT OPSIONAL':language==='nl'?'OPTIONELE INZICHTEN':'OPTIONAL SKILL INSIGHTS'}</p><h2 className="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl">{language==='id'?'Snapshot latihan komunikasi Anda':language==='nl'?'Je communicatietraining in beeld':'Your communication practice snapshot'}</h2><p className="mt-3 text-sm leading-relaxed text-muted">{language==='id'?'Indikator ini berasal dari analisis berbasis aturan pada demo. Ini bukan pengukuran ilmiah atau psikologis.':language==='nl'?'Deze indicatoren komen uit de regelgebaseerde demo-analyse. Ze zijn geen wetenschappelijke of psychologische metingen.':'These indicators come from the demo’s rule-based analysis. They are not scientific or psychological measurements.'}</p><div className="mt-7 space-y-5"><ProgressBar icon="🤝" label={t.resultDetails.empathy} value={scores?.empathy??0} color="var(--color-primary)"/><ProgressBar icon="🎯" label={t.resultDetails.specificity} value={scores?.specificity??0} color="var(--color-aqua)"/><ProgressBar icon="💬" label={t.resultDetails.clarity} value={scores?.clarity??0} color="var(--color-amber)"/><ProgressBar icon="🧠" label={t.resultDetails.nlpPractice} value={scores?.nlpPractice??0} color="var(--color-primary-dark)"/><ProgressBar icon="🪞" label={t.resultDetails.selfAwareness} value={scores?.selfAwareness??0} color="var(--color-rose)"/></div><div className="mt-6 flex items-start gap-3 rounded-2xl bg-mist p-4 text-sm text-muted"><Info className="mt-0.5 h-4 w-4 shrink-0"/><span>{language==='id'?'Gunakan ini sebagai sinyal latihan, bukan nilai diri.':language==='nl'?'Gebruik dit als trainingssignaal, niet als oordeel over jezelf.':'Use this as a practice signal, not as a judgment about yourself.'}</span></div><div className="mt-8"><Button onClick={next} fullWidth className="sm:w-auto sm:px-10">{language==='id'?'Selesai':language==='nl'?'Afronden':'Finish'} <ArrowRight className="h-4 w-4"/></Button></div></MirrorPane></PageShell>;
 };

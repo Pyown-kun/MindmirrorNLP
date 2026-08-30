@@ -30,6 +30,9 @@ export interface AIAnalysisService {
     messages: RoleplayMessage[],
     language: AnalysisInput['language']
   ): CommunicationAnalysis;
+  generateReflection?(input: { initialThought: string; messages: RoleplayMessage[]; language: AnalysisInput['language'] }): string;
+  generateAhaMoment?(input: { initialThought: string; laterResponse: string; language: AnalysisInput['language'] }): string;
+  generateTakeaway?(input: { language: AnalysisInput['language']; moduleId?: string }): string;
 }
 
 /**

@@ -1,112 +1,107 @@
-import { useState, type FormEvent } from 'react';
-import { ArrowLeft, Check, Globe2, LockKeyhole, LogOut, Save, ShieldCheck, RotateCcw, Languages } from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { useAuth } from '../context/AuthContext';
-import { getCurriculum, resetCurriculum, saveCurriculum, type Curriculum } from '../curriculum';
-import type { Language, TrainingType } from '../types/training';
+import { useMemo, useState } from 'react';
+import { ArrowLeft, BarChart3, BookOpen, Check, ChevronRight, Eye, FileText, LayoutDashboard, Pencil, Plus, Save, Trash2, Upload, X } from 'lucide-react';
+import type { CurriculumModule, Language, LocalizedList, LocalizedText, PatternType } from '../types/training';
+import { cloneModule, createBlankModule, deleteManagedModule, getManagedModules, getParticipantCount, languageLabels, patternLabels, type CurriculumStatus, type ManagedCurriculum, upsertManagedModule } from '../services/curriculumStore';
+import { logoutAdmin } from './AdminLogin';
 
-const types: TrainingType[] = ['feedback', 'conflict', 'leadership'];
-const languageNames: Record<Language, string> = { en: 'English', id: 'Bahasa Indonesia', nl: 'Nederlands' };
-
-const AdminLogin = () => {
-  const { login } = useAuth();
-  const [email, setEmail] = useState('admin@mindmirror.demo');
-  const [password, setPassword] = useState('Admin123!');
-  const [error, setError] = useState('');
-  const submit = (e: FormEvent) => { e.preventDefault(); setError(login(email, password) ? '' : 'Invalid admin credentials.'); };
-  return (
-    <div className="min-h-screen bg-mist px-4 py-10 sm:px-8">
-      <div className="mx-auto flex min-h-[80vh] max-w-md items-center">
-        <form onSubmit={submit} className="w-full rounded-[2rem] border border-ink/10 bg-white p-7 shadow-xl">
-          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"><LockKeyhole /></div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">MindMirror Admin</p>
-          <h1 className="mt-2 font-display text-3xl font-bold">Curriculum Portal</h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted">Protected workspace for curriculum editors. Participants never see these controls.</p>
-          <label className="mt-6 block text-sm font-semibold">Admin email<input value={email} onChange={e => setEmail(e.target.value)} className="mt-2 w-full rounded-xl border border-ink/10 px-3 py-3 font-normal" /></label>
-          <label className="mt-4 block text-sm font-semibold">Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} className="mt-2 w-full rounded-xl border border-ink/10 px-3 py-3 font-normal" /></label>
-          {error && <p className="mt-3 rounded-xl bg-rose/10 px-3 py-2 text-sm text-rose">{error}</p>}
-          <Button type="submit" fullWidth className="mt-6"><ShieldCheck className="h-4 w-4" /> Sign in as admin</Button>
-          <p className="mt-4 text-center text-xs text-muted">Demo: admin@mindmirror.demo · Admin123!</p>
-        </form>
-      </div>
-    </div>
-  );
-};
+const tabs = ['Basic Information', 'Scenario', 'Interaction', 'Pattern Rules', 'Reflection', 'Aha Moment', 'Takeaway', 'Review & Publish'];
+const langs: Language[] = ['en', 'id', 'nl'];
+const blank = () => ({ en: '', id: '', nl: '' });
+const listFrom = (value: LocalizedList, lang: Language) => value[lang].join('\n');
+const setList = (value: LocalizedList, lang: Language, text: string): LocalizedList => ({ ...value, [lang]: text.split('\n').map(v => v.trim()).filter(Boolean) });
+const setText = (value: LocalizedText, lang: Language, text: string): LocalizedText => ({ ...value, [lang]: text });
 
 export const AdminPortal = () => {
-  const { user, logout } = useAuth();
-  const [language, setLanguage] = useState<Language>('en');
-  const [type, setType] = useState<TrainingType>('feedback');
-  const [saved, setSaved] = useState(false);
-  const [draft, setDraft] = useState<Curriculum>(() => getCurriculum('en', 'feedback'));
+  const [modules, setModules] = useState<ManagedCurriculum[]>(getManagedModules);
+  const [view, setView] = useState<'dashboard' | 'management' | 'builder'>('dashboard');
+  const [editing, setEditing] = useState<CurriculumModule | null>(null);
+  const [step, setStep] = useState(0);
+  const [lang, setLang] = useState<Language>('en');
+  const refresh = () => setModules(getManagedModules());
+  const openBuilder = (module?: CurriculumModule) => { setEditing(module ? cloneModule(module) : createBlankModule()); setStep(0); setView('builder'); };
+  const publish = (module: CurriculumModule, status: CurriculumStatus) => { upsertManagedModule(module, status); refresh(); };
+  const stats = useMemo(() => ({ total: modules.length, published: modules.filter(m => m.status === 'published').length, drafts: modules.filter(m => m.status === 'draft').length }), [modules]);
 
-  if (!user || user.role !== 'admin') return <AdminLogin />;
+  if (view === 'builder' && editing) return <Builder module={editing} setModule={setEditing} step={step} setStep={setStep} lang={lang} setLang={setLang} onBack={() => { refresh(); setView('management'); }} onSave={(status) => { publish(editing, status); setView('management'); }} />;
 
-  const curriculum = getCurriculum(language, type);
-  const active = draft.id === curriculum.id ? draft : curriculum;
-  const scenario = active.scenarios[0];
-
-  const selectLanguage = (next: Language) => { setLanguage(next); setDraft(getCurriculum(next, type)); setSaved(false); };
-  const selectType = (next: TrainingType) => { setType(next); setDraft(getCurriculum(language, next)); setSaved(false); };
-  const updateScenario = (field: string, value: string) => {
-    setDraft({ ...active, scenarios: active.scenarios.map((s, i) => i === 0 ? { ...s, [field]: value } : s) });
-    setSaved(false);
-  };
-  const updateStage = (stageIndex: number, field: string, value: string) => {
-    setDraft({ ...active, scenarios: active.scenarios.map((s, i) => i === 0 ? { ...s, stages: s.stages.map((st, j) => j === stageIndex ? { ...st, [field]: value } : st) } : s) });
-    setSaved(false);
-  };
-  const save = () => { saveCurriculum(language, active); setSaved(true); };
-  const reset = () => { resetCurriculum(language, type); setDraft(getCurriculum(language, type)); setSaved(true); };
-
-  return (
-    <div className="min-h-screen bg-mist">
-      <header className="sticky top-0 z-10 border-b border-ink/10 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-8">
-          <div><p className="font-display text-lg font-bold">MindMirror <span className="text-primary">Admin</span></p><p className="text-xs text-muted">Curriculum management workspace</p></div>
-          <div className="flex items-center gap-2"><button onClick={() => { window.location.href = '/'; }} className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-muted hover:bg-mist sm:inline-flex"><ArrowLeft className="mr-1 h-4 w-4" /> User app</button><button onClick={logout} className="rounded-xl px-3 py-2 text-sm font-semibold text-muted hover:bg-mist"><LogOut className="mr-1 inline h-4 w-4" /> Logout</button></div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-6xl px-4 py-7 sm:px-8">
-        <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
-          <aside className="rounded-3xl border border-ink/10 bg-white p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">Content scope</p>
-            <div className="mt-3 space-y-2">
-              {types.map(t => <button key={t} onClick={() => selectType(t)} className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-semibold ${type === t ? 'bg-primary text-white' : 'hover:bg-mist'}`}>{t[0].toUpperCase()+t.slice(1)}</button>)}
-            </div>
-            <div className="my-5 border-t border-ink/10" />
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">Language version</p>
-            <div className="mt-3 space-y-2">
-              {(Object.keys(languageNames) as Language[]).map(l => <button key={l} onClick={() => selectLanguage(l)} className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-semibold ${language === l ? 'bg-aqua/10 text-aqua' : 'hover:bg-mist'}`}><span>{languageNames[l]}</span>{language === l && <Check className="h-4 w-4" />}</button>)}
-            </div>
-            <div className="mt-6 rounded-2xl bg-mist p-4 text-xs leading-relaxed text-muted"><Languages className="mb-2 h-4 w-4 text-primary" />Each language has its own curriculum content. Dialogue shown to participants comes from the selected language version.</div>
-          </aside>
-
-          <section className="rounded-3xl border border-ink/10 bg-white p-5 shadow-sm sm:p-7">
-            <div className="flex flex-col gap-4 border-b border-ink/10 pb-5 sm:flex-row sm:items-start sm:justify-between">
-              <div><p className="text-xs font-bold uppercase tracking-wider text-primary">Editing {language.toUpperCase()} · {type}</p><h1 className="mt-1 font-display text-2xl font-bold">{active.title}</h1><p className="mt-1 text-sm text-muted">Version {active.version} · Scenario {scenario.id}</p></div>
-            </div>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <label className="text-sm font-semibold">Curriculum title<input value={active.title} onChange={e => setDraft({ ...active, title: e.target.value })} className="mt-2 w-full rounded-xl border border-ink/10 px-3 py-3 font-normal" /></label>
-              <label className="text-sm font-semibold">Description<textarea value={active.description} onChange={e => setDraft({ ...active, description: e.target.value })} className="mt-2 min-h-24 w-full rounded-xl border border-ink/10 px-3 py-3 font-normal" /></label>
-            </div>
-            <div className="mt-7 rounded-3xl bg-mist p-5"><p className="text-xs font-bold uppercase tracking-wider text-muted">Scenario content</p>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <label className="text-sm font-semibold">Scenario title<input value={scenario.title} onChange={e => updateScenario('title', e.target.value)} className="mt-2 w-full rounded-xl border border-ink/10 bg-white px-3 py-3 font-normal" /></label>
-                <label className="text-sm font-semibold">Character<textarea value={`${scenario.characterName} · ${scenario.characterRole}`} disabled className="mt-2 w-full rounded-xl border border-ink/10 bg-white px-3 py-3 font-normal opacity-70" /></label>
-              </div>
-              <label className="mt-4 block text-sm font-semibold">Situation<textarea value={scenario.situation} onChange={e => updateScenario('situation', e.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-ink/10 bg-white px-3 py-3 font-normal" /></label>
-            </div>
-            <div className="mt-7"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-muted">Roleplay dialogue</p><h2 className="mt-1 font-display text-lg font-bold">Participant-facing conversation</h2></div><span className="rounded-full bg-aqua/10 px-3 py-1 text-xs font-semibold text-aqua">{languageNames[language]}</span></div>
-              <div className="mt-4 space-y-4">
-                {scenario.stages.map((stage, i) => <div key={i} className="rounded-2xl border border-ink/10 p-4"><p className="text-xs font-bold uppercase tracking-wider text-primary">Turn {i+1}</p><div className="mt-3 grid gap-3 md:grid-cols-2">{(['opening','onClarify','onEmpathy','onSpecific','fallback'] as const).map(field => <label key={field} className="text-xs font-semibold text-muted">{field}<textarea value={stage[field]} onChange={e => updateStage(i, field, e.target.value)} className="mt-1 min-h-20 w-full rounded-xl border border-ink/10 px-3 py-2 text-sm font-normal text-ink" /> </label>)}</div></div>)}
-              </div>
-            </div>
-            <div className="mt-7 flex flex-wrap items-center gap-3"><Button onClick={save}><Save className="h-4 w-4" /> Publish version</Button><button onClick={reset} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-muted hover:bg-mist"><RotateCcw className="h-4 w-4" /> Reset language version</button>{saved && <span className="inline-flex items-center gap-1 text-sm font-semibold text-aqua"><Check className="h-4 w-4" /> Saved locally</span>}</div>
-            <div className="mt-5 rounded-2xl border border-primary/10 bg-primary/5 p-4 text-xs leading-relaxed text-muted"><Globe2 className="mb-2 h-4 w-4 text-primary" /><strong className="text-ink">Production pattern:</strong> keep this portal behind SSO/OIDC and server-side role-based access control. The demo uses localStorage only to illustrate the protected UX; it is not a security boundary.</div>
-          </section>
-        </div>
+  return <div className="min-h-screen bg-mist text-ink">
+    <header className="sticky top-0 z-20 border-b border-black/5 bg-white/90 px-4 py-4 backdrop-blur sm:px-8"><div className="mx-auto flex max-w-7xl items-center justify-between gap-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white"><BookOpen className="h-5 w-5" /></div><div><div className="font-display text-lg font-bold">MindMirror CMS</div><div className="text-xs text-muted">Curriculum Management Portal</div></div></div><div className="flex items-center gap-2"><button className="rounded-lg px-3 py-2 text-sm text-muted hover:bg-mist" onClick={() => { logoutAdmin(); window.location.href = '/'; }}><ArrowLeft className="mr-2 inline h-4 w-4" />Participant App</button></div></div></header>
+    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-8 lg:flex-row">
+      <aside className="lg:w-56"><nav className="flex gap-2 overflow-x-auto lg:flex-col">{[['dashboard','Dashboard',LayoutDashboard],['management','Curriculum Management',FileText]].map(([key,label,Icon]) => <button key={key as string} onClick={() => setView(key as 'dashboard' | 'management')} className={`flex shrink-0 items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold ${view === key ? 'bg-primary text-white' : 'bg-white text-muted hover:bg-white/70'}`}><Icon className="h-4 w-4" />{label as string}</button>)}</nav></aside>
+      <main className="min-w-0 flex-1">
+        {view === 'dashboard' ? <Dashboard stats={stats} modules={modules} onManage={() => setView('management')} onCreate={() => openBuilder()} /> : <Management modules={modules} onCreate={() => openBuilder()} onEdit={openBuilder} onPublish={publish} onDelete={(id) => { deleteManagedModule(id); refresh(); }} />}
       </main>
     </div>
-  );
+  </div>;
 };
+
+const Dashboard = ({ stats, modules, onManage, onCreate }: { stats: { total:number; published:number; drafts:number }; modules: ManagedCurriculum[]; onManage:()=>void; onCreate:()=>void }) => <div>
+  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-sm font-semibold uppercase tracking-wider text-primary">Admin Dashboard</p><h1 className="mt-1 font-display text-3xl font-bold">Welcome back, Admin</h1><p className="mt-2 text-sm text-muted">Create, test and publish reusable learning experiences.</p></div><button onClick={onCreate} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary-dark"><Plus className="h-4 w-4" />Create New Module</button></div>
+  <div className="mt-7 grid gap-4 sm:grid-cols-3">{[[stats.total,'Modules',BookOpen],[stats.published,'Published',Upload],[getParticipantCount(),'Participants',BarChart3]].map(([n,label,Icon]) => <div key={label as string} className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm"><Icon className="h-5 w-5 text-primary"/><div className="mt-4 font-mono-num text-3xl font-bold">{n as number}</div><div className="text-sm text-muted">{label as string}</div></div>)}</div>
+  <section className="mt-7 rounded-2xl border border-black/5 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-display text-xl font-bold">Recent Modules</h2><p className="mt-1 text-sm text-muted">Manage the curriculum available to participants.</p></div><button onClick={onManage} className="text-sm font-semibold text-primary">View all <ChevronRight className="inline h-4 w-4"/></button></div><div className="mt-5 space-y-3">{modules.slice(0,4).map(m => <ModuleRow key={m.id} module={m}/>)}</div></section>
+</div>;
+
+const ModuleRow = ({ module }: { module: ManagedCurriculum }) => <div className="flex flex-col gap-3 rounded-xl border border-black/5 p-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="font-semibold">{module.title.en || 'Untitled module'}</div><div className="mt-1 text-xs text-muted">{module.id} · Updated {new Date(module.updatedAt).toLocaleDateString()}</div></div><span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${module.status === 'published' ? 'bg-aqua/10 text-aqua' : 'bg-amber/10 text-amber'}`}>{module.status === 'published' ? 'Published' : 'Draft'}</span></div>;
+
+const Management = ({ modules, onCreate, onEdit, onPublish, onDelete }: { modules: ManagedCurriculum[]; onCreate:()=>void; onEdit:(m:CurriculumModule)=>void; onPublish:(m:CurriculumModule,s:CurriculumStatus)=>void; onDelete:(id:string)=>void }) => { const [preview, setPreview] = useState<CurriculumModule | null>(null); return <div>
+  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-sm font-semibold uppercase tracking-wider text-primary">Curriculum Management</p><h1 className="mt-1 font-display text-3xl font-bold">Learning Experiences</h1><p className="mt-2 text-sm text-muted">One place to author, preview and publish curriculum.</p></div><button onClick={onCreate} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white"><Plus className="h-4 w-4"/>Create New Module</button></div>
+  <div className="mt-7 grid gap-4">{modules.map(m => <div key={m.id} className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="font-display text-xl font-bold">{m.title.en || 'Untitled module'}</h2><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${m.status === 'published' ? 'bg-aqua/10 text-aqua' : 'bg-amber/10 text-amber'}`}>{m.status}</span></div><p className="mt-1 line-clamp-2 text-sm text-muted">{m.description.en || 'No description yet.'}</p><div className="mt-3 text-xs text-muted">{m.scenario.characters.length} character{m.scenario.characters.length !== 1 ? 's' : ''} · {m.interaction.stages.length} interaction stages · {m.estimatedDuration} min</div></div><div className="flex flex-wrap gap-2"><button className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-sm font-semibold" onClick={() => onEdit(m)}><Pencil className="h-4 w-4"/>Edit</button><button className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-sm font-semibold" onClick={() => setPreview(m)}><Eye className="h-4 w-4"/>Preview</button><button className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white" onClick={() => onPublish(m, m.status === 'published' ? 'draft' : 'published')}>{m.status === 'published' ? 'Unpublish' : 'Publish'}</button><button className="rounded-lg p-2 text-rose hover:bg-rose/10" title="Delete" onClick={() => { if (confirm('Delete this module?')) onDelete(m.id); }}><Trash2 className="h-4 w-4"/></button></div></div></div>)}</div>
+{preview && <PreviewModal module={preview} onClose={() => setPreview(null)} />}
+</div>; }
+
+const PreviewModal = ({ module, onClose }: { module: CurriculumModule; onClose:()=>void }) => <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"><div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wider text-primary">Experience Preview</p><h2 className="mt-1 font-display text-2xl font-bold">{module.title.en || 'Untitled module'}</h2></div><button onClick={onClose} className="rounded-lg p-2 text-muted hover:bg-mist"><X className="h-5 w-5"/></button></div><div className="mt-6 space-y-4"><div className="rounded-xl bg-mist p-4"><div className="text-xs font-bold uppercase tracking-wide text-muted">Scenario</div><div className="mt-1 font-semibold">{module.scenario.title.en}</div><p className="mt-2 text-sm text-muted">{module.scenario.context.en}</p><div className="mt-3 rounded-lg bg-white p-3 text-sm">“{module.scenario.openingMessage.en}”</div></div><div><div className="text-xs font-bold uppercase tracking-wide text-muted">Interaction Flow</div><div className="mt-2 space-y-2">{module.interaction.stages.map((stage,i)=><div key={i} className="rounded-lg border border-black/5 p-3 text-sm"><b>Stage {i+1}</b><div className="mt-1">{stage.prompt.en}</div></div>)}</div></div><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-black/5 p-4"><b>Reflection</b><p className="mt-2 text-sm text-muted">{module.reflection.questions.en[0] || 'No question configured.'}</p></div><div className="rounded-xl border border-black/5 p-4"><b>Aha Moment</b><p className="mt-2 text-sm text-muted">{module.ahaMoment.userPrompt.en || 'No prompt configured.'}</p></div></div><div className="rounded-xl bg-primary/5 p-4"><b>Takeaway</b><p className="mt-2 text-sm text-muted">{module.takeaway.practicalChallenge.en || 'No takeaway configured.'}</p></div></div></div></div>;
+
+function Builder({ module, setModule, step, setStep, lang, setLang, onBack, onSave }: { module: CurriculumModule; setModule: (m: CurriculumModule)=>void; step:number; setStep:(n:number)=>void; lang:Language; setLang:(l:Language)=>void; onBack:()=>void; onSave:(s:CurriculumStatus)=>void }) {
+  const update = (patch: Partial<CurriculumModule>) => setModule({ ...module, ...patch });
+  const textField = (label:string, value:LocalizedText, onChange:(v:LocalizedText)=>void) => (
+    <label className="block"><span className="mb-2 block text-sm font-semibold">{label}</span><input value={value[lang]} onChange={e=>onChange(setText(value,lang,e.target.value))} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-primary" /></label>
+  );
+  const textArea = (label:string, value:LocalizedText, onChange:(v:LocalizedText)=>void) => (
+    <label className="block"><span className="mb-2 block text-sm font-semibold">{label}</span><textarea rows={4} value={value[lang]} onChange={e=>onChange(setText(value,lang,e.target.value))} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-primary" /></label>
+  );
+  const listArea = (label:string, value:LocalizedList, onChange:(v:LocalizedList)=>void) => (
+    <label className="block"><span className="mb-2 block text-sm font-semibold">{label} <span className="font-normal text-muted">(one per line)</span></span><textarea rows={4} value={listFrom(value,lang)} onChange={e=>onChange(setList(value,lang,e.target.value))} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-primary" /></label>
+  );
+  const updateScenario = (patch: Partial<CurriculumModule['scenario']>) => update({ scenario: { ...module.scenario, ...patch } });
+  const updateInteraction = (patch: Partial<CurriculumModule['interaction']>) => update({ interaction: { ...module.interaction, ...patch } });
+  const updateReflection = (patch: Partial<CurriculumModule['reflection']>) => update({ reflection: { ...module.reflection, ...patch } });
+  const updateAha = (patch: Partial<CurriculumModule['ahaMoment']>) => update({ ahaMoment: { ...module.ahaMoment, ...patch } });
+  const updateTakeaway = (patch: Partial<CurriculumModule['takeaway']>) => update({ takeaway: { ...module.takeaway, ...patch } });
+
+  const content = () => {
+    if (step === 0) return <div className="grid gap-5 sm:grid-cols-2">
+      {textField('Module Title', module.title, v=>update({title:v}))}
+      {textField('Category', module.category, v=>update({category:v}))}
+      {textArea('Description', module.description, v=>update({description:v}))}
+      {textArea('Learning Objective', module.learningObjective, v=>update({learningObjective:v}))}
+      <label><span className="mb-2 block text-sm font-semibold">Estimated Duration (minutes)</span><input type="number" min={1} value={module.estimatedDuration} onChange={e=>update({estimatedDuration:Number(e.target.value)})} className="w-full rounded-xl border border-black/10 bg-white px-4 py-3" /></label>
+      {textField('Difficulty', module.difficulty, v=>update({difficulty:v}))}
+    </div>;
+
+    if (step === 1) return <div className="space-y-5">
+      {textField('Scenario Title', module.scenario.title, v=>updateScenario({title:v}))}
+      {textArea('Context', module.scenario.context, v=>updateScenario({context:v}))}
+      {textArea('Opening Message', module.scenario.openingMessage, v=>updateScenario({openingMessage:v}))}
+      <div className="rounded-xl border border-black/5 bg-mist p-4"><div className="mb-3 flex items-center justify-between"><b>Characters</b><button className="text-sm font-semibold text-primary" onClick={()=>updateScenario({characters:[...module.scenario.characters,{name:blank(),role:blank()}]})}><Plus className="mr-1 inline h-4 w-4"/>Add Character</button></div>
+        {module.scenario.characters.map((character,index)=><div key={index} className="mb-4 grid gap-3 rounded-xl bg-white p-4 sm:grid-cols-2">{textField(`Character ${index+1} Name`,character.name,v=>{const chars=[...module.scenario.characters];chars[index]={...character,name:v};updateScenario({characters:chars});})}{textField('Role',character.role,v=>{const chars=[...module.scenario.characters];chars[index]={...character,role:v};updateScenario({characters:chars});})}</div>)}
+      </div>
+    </div>;
+
+    if (step === 2) return <div className="space-y-5">
+      {listArea('Interaction Prompts', module.interaction.prompts, v=>updateInteraction({prompts:v}))}
+      <div className="flex items-center justify-between"><h3 className="font-display text-lg font-bold">Interaction Stages</h3><button className="text-sm font-semibold text-primary" onClick={()=>updateInteraction({stages:[...module.interaction.stages,{prompt:blank(),expectedInteractionTypes:['clarify'],replies:{clarify:blank(),empathy:blank(),specific:blank(),fallback:blank()}}]})}><Plus className="mr-1 inline h-4 w-4"/>Add Stage</button></div>
+      {module.interaction.stages.map((stage,index)=><div key={index} className="rounded-xl border border-black/10 bg-white p-4"><div className="mb-3 flex justify-between"><b>Stage {index+1}</b><button onClick={()=>updateInteraction({stages:module.interaction.stages.filter((_,i)=>i!==index)})} className="text-rose"><Trash2 className="h-4 w-4"/></button></div>{textArea('Prompt',stage.prompt,v=>{const a=[...module.interaction.stages];a[index]={...stage,prompt:v};updateInteraction({stages:a});})}<div className="mt-4 grid gap-4 sm:grid-cols-2">{(['clarify','empathy','specific','fallback'] as const).map(type=><div key={type}>{textArea(`${type} reply`,stage.replies[type],v=>{const a=[...module.interaction.stages];a[index]={...stage,replies:{...stage.replies,[type]:v}};updateInteraction({stages:a});})}</div>)}</div></div>)}
+    </div>;
+
+    if (step === 3) return <div className="space-y-5"><div className="grid gap-3 sm:grid-cols-3">{(['generalization','judgment','assumption'] as PatternType[]).map(pattern=><label key={pattern} className="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 bg-white p-4"><input type="checkbox" checked={module.patternRules.rules.includes(pattern)} onChange={e=>update({patternRules:{...module.patternRules,rules:e.target.checked?[...new Set([...module.patternRules.rules,pattern])]:module.patternRules.rules.filter(x=>x!==pattern)}})} /><span className="text-sm font-semibold">{patternLabels[pattern]}</span></label>)}</div><div className="rounded-xl border border-black/5 bg-mist p-4"><h3 className="font-display font-bold">Keywords by language</h3><p className="mt-1 text-xs text-muted">Use commas to separate keywords. These feed the Simple Analysis rule engine.</p><div className="mt-4 flex gap-2 overflow-x-auto">{langs.map(l=><button key={l} onClick={()=>setLang(l)} className={`rounded-lg px-3 py-2 text-sm font-semibold ${lang===l?'bg-primary text-white':'bg-white'}`}>{languageLabels[l]}</button>)}</div><div className="mt-4 grid gap-4 sm:grid-cols-3">{(['generalization','judgment','assumption'] as PatternType[]).map(pattern=><label key={pattern}><span className="mb-2 block text-sm font-semibold">{patternLabels[pattern]}</span><input value={module.patternRules.keywordGroups[lang][pattern].join(', ')} onChange={e=>{const groups=JSON.parse(JSON.stringify(module.patternRules.keywordGroups));groups[lang][pattern]=e.target.value.split(',').map((x:string)=>x.trim()).filter(Boolean);update({patternRules:{...module.patternRules,keywordGroups:groups}})}} className="w-full rounded-xl border border-black/10 bg-white px-3 py-3 text-sm" /></label>)}</div></div></div>;
+
+    if (step === 4) return <div className="space-y-5">{listArea('Reflection Questions',module.reflection.questions,v=>updateReflection({questions:v}))}{listArea('Comparison Prompts',module.reflection.comparisonPrompts,v=>updateReflection({comparisonPrompts:v}))}</div>;
+    if (step === 5) return <div className="space-y-5">{textField('Aha Moment Title',module.ahaMoment.title,v=>updateAha({title:v}))}{textArea('Trigger',module.ahaMoment.trigger,v=>updateAha({trigger:v}))}{textArea('Reflection Prompt',module.ahaMoment.userPrompt,v=>updateAha({userPrompt:v}))}{textArea('System Insight',module.ahaMoment.systemInsight,v=>updateAha({systemInsight:v}))}<div className="rounded-xl bg-primary/5 p-4 text-sm text-muted">Initial and later participant responses are captured automatically from the experience. Admin defines how the comparison is framed.</div></div>;
+    if (step === 6) return <div className="space-y-5">{textField('Takeaway Title',module.takeaway.title,v=>updateTakeaway({title:v}))}{textArea('Practical Challenge',module.takeaway.practicalChallenge,v=>updateTakeaway({practicalChallenge:v}))}{textArea('Real-world Prompt',module.takeaway.realWorldPrompt,v=>updateTakeaway({realWorldPrompt:v}))}</div>;
+    return <div className="space-y-5"><div className="rounded-2xl bg-primary/5 p-5"><p className="text-xs font-bold uppercase tracking-wider text-primary">Ready to publish</p><h2 className="mt-1 font-display text-2xl font-bold">{module.title[lang] || 'Untitled module'}</h2><p className="mt-2 text-sm text-muted">Review the experience, then save it as draft or publish it to the participant Training Library.</p></div><div className="grid gap-3 sm:grid-cols-2">{[['Scenario',module.scenario.title[lang]],['Interaction',`${module.interaction.stages.length} stages`],['Patterns',module.patternRules.rules.map(r=>patternLabels[r]).join(', ')||'None'],['Reflection',`${module.reflection.questions[lang].length} questions`],['Aha Moment',module.ahaMoment.title[lang]],['Takeaway',module.takeaway.title[lang]]].map(([key,value])=><div key={key as string} className="rounded-xl border border-black/5 bg-white p-4"><div className="text-xs font-semibold uppercase tracking-wide text-muted">{key as string}</div><div className="mt-1 font-semibold">{value as string || 'Not filled'}</div></div>)}</div></div>;
+  };
+
+  return <div className="min-h-screen bg-mist"><header className="sticky top-0 z-20 border-b border-black/5 bg-white/95 px-4 py-4 backdrop-blur sm:px-8"><div className="mx-auto flex max-w-6xl items-center justify-between gap-4"><button onClick={onBack} className="inline-flex items-center gap-2 text-sm font-semibold text-muted"><ArrowLeft className="h-4 w-4"/>Back to Management</button><div className="hidden font-display font-bold sm:block">Curriculum Builder</div><div className="flex items-center gap-1 rounded-lg bg-mist p-1">{langs.map(l=><button key={l} onClick={()=>setLang(l)} className={`rounded-md px-2.5 py-1.5 text-xs font-bold ${lang===l?'bg-white shadow-sm text-primary':'text-muted'}`}>{languageLabels[l]}</button>)}</div></div></header>
+    <main className="mx-auto max-w-6xl px-4 py-6 sm:px-8"><div className="grid gap-6 lg:grid-cols-[220px_1fr]"><aside className="rounded-2xl border border-black/5 bg-white p-3 shadow-sm"><div className="mb-3 px-3 py-2 text-xs font-bold uppercase tracking-wider text-muted">Module Builder</div>{tabs.map((title,index)=><button key={title} onClick={()=>setStep(index)} className={`flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm ${index===step?'bg-primary text-white font-semibold':'text-muted hover:bg-mist'}`}><span>{index+1}. {title}</span>{index<step&&<Check className="h-4 w-4"/>}</button>)}</aside>
+      <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm sm:p-7"><div className="mb-7"><p className="text-xs font-bold uppercase tracking-wider text-primary">Step {step+1} of {tabs.length}</p><h1 className="mt-1 font-display text-2xl font-bold">{tabs[step]}</h1><p className="mt-1 text-sm text-muted">Content is stored independently from the experience engine.</p></div>{content()}<div className="mt-8 flex flex-col-reverse justify-between gap-3 border-t border-black/5 pt-5 sm:flex-row"><button disabled={step===0} onClick={()=>setStep(Math.max(0,step-1))} className="rounded-xl border border-black/10 px-4 py-3 text-sm font-semibold disabled:opacity-30">Previous</button><div className="flex flex-wrap gap-2">{step===tabs.length-1?<><button onClick={()=>onSave('draft')} className="inline-flex items-center gap-2 rounded-xl border border-black/10 px-4 py-3 text-sm font-semibold"><Save className="h-4 w-4"/>Save Draft</button><button onClick={()=>onSave('published')} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white"><Upload className="h-4 w-4"/>Publish Module</button></>:<button onClick={()=>setStep(Math.min(tabs.length-1,step+1))} className="rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white">Save & Continue <ChevronRight className="ml-1 inline h-4 w-4"/></button>}</div></div></section></div></main></div>;
+}

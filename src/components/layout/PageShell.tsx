@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
+import { Lock } from 'lucide-react';
 import { LanguageSelector } from '../LanguageSelector';
 import { ProgressStepper } from '../ProgressStepper';
 import { useTraining } from '../../context/TrainingContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { usePrivacy } from '../../context/PrivacyContext';
 
 interface PageShellProps {
@@ -12,7 +14,8 @@ interface PageShellProps {
 
 export const PageShell = ({ children, wide = false, showBrand = false }: PageShellProps) => {
   const { step } = useTraining();
-  const { openNotice } = usePrivacy();
+  const { t } = useLanguage();
+  const { openPrivacy } = usePrivacy();
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-mist">
@@ -30,16 +33,7 @@ export const PageShell = ({ children, wide = false, showBrand = false }: PageShe
         ) : (
           <div className="hidden sm:block" />
         )}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={openNotice}
-            className="hidden rounded-full px-3 py-2 text-xs font-semibold text-muted transition hover:bg-white hover:text-ink sm:inline-flex"
-          >
-            Privasi & Data
-          </button>
-          <LanguageSelector compact />
-        </div>
+        <LanguageSelector compact />
       </header>
 
       {step !== 'welcome' && (
@@ -51,6 +45,16 @@ export const PageShell = ({ children, wide = false, showBrand = false }: PageShe
       <main className="flex flex-1 items-center justify-center px-4 pb-10 pt-4 sm:px-8">
         <div className={`w-full ${wide ? 'max-w-3xl' : 'max-w-xl'}`}>{children}</div>
       </main>
+
+      <footer className="flex justify-center pb-6">
+        <button
+          onClick={openPrivacy}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted transition hover:text-ink"
+        >
+          <Lock className="h-3.5 w-3.5" />
+          {t.privacy.reopenLink}
+        </button>
+      </footer>
     </div>
   );
 };

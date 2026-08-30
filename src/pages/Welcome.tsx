@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { Settings, Sparkles } from 'lucide-react';
 import { PageShell } from '../components/layout/PageShell';
 import { MirrorPane } from '../components/ui/MirrorPane';
 import { Button } from '../components/ui/Button';
@@ -37,6 +37,10 @@ export const Welcome = () => {
             {t.welcome.cta}
           </Button>
         </div>
+
+        <button onClick={() => { window.location.href = '/admin'; }} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-muted transition hover:text-ink">
+          <Settings className="h-3.5 w-3.5" /> Admin / Curriculum Portal
+        </button>
       </MirrorPane>
     </PageShell>
   );
