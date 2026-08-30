@@ -1,4 +1,6 @@
 import { LanguageProvider } from './context/LanguageContext';
+import { AuthProvider } from './context/AuthContext';
+import { AdminPortal } from './pages/AdminPortal';
 import { PrivacyProvider } from './context/PrivacyContext';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { TrainingProvider, useTraining } from './context/TrainingContext';
@@ -61,14 +63,19 @@ const StepRouter = () => {
 };
 
 function App() {
+  const isAdminPortal = window.location.pathname.startsWith('/admin');
   return (
     <LanguageProvider>
-      <PrivacyProvider>
-        <TrainingProvider>
-          <StepRouter />
-          <PrivacyNotice />
-        </TrainingProvider>
-      </PrivacyProvider>
+      <AuthProvider>
+        {isAdminPortal ? <AdminPortal /> : (
+          <PrivacyProvider>
+            <TrainingProvider>
+              <StepRouter />
+              <PrivacyNotice />
+            </TrainingProvider>
+          </PrivacyProvider>
+        )}
+      </AuthProvider>
     </LanguageProvider>
   );
 }

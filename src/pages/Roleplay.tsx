@@ -7,6 +7,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useTraining } from '../context/TrainingContext';
 import { roleplayService } from '../services/ai';
 import type { RoleplayMessage } from '../types/training';
+import { getCurriculum } from '../curriculum';
 
 const MIN_EXCHANGES = 4;
 const MAX_EXCHANGES = 6;
@@ -17,17 +18,21 @@ export const Roleplay = () => {
   const [messages, setMessages] = useState<RoleplayMessage[]>(session.roleplayMessages);
   const [input, setInput] = useState('');
 
-  const characterName = t.roleplay.characterName;
-  const characterRole = t.roleplay.characterRole;
+  const curriculum = getCurriculum(language, session.trainingType ?? 'feedback');
+  const scenario = curriculum.scenarios.find((item) => item.id === session.scenarioId) ?? curriculum.scenarios[0];
+  const characterName = scenario.characterName;
+  const characterRole = scenario.characterRole;
 
   useEffect(() => {
     if (messages.length === 0) {
       const opening = roleplayService.startScenario({
         characterName,
         characterRole,
-        situation: session.situation,
+        situation: scenario.situation,
         language,
         stage: 0,
+        trainingType: session.trainingType ?? 'feedback',
+        scenarioId: scenario.id,
       });
       setMessages([opening]);
     }
@@ -53,9 +58,11 @@ export const Roleplay = () => {
       {
         characterName,
         characterRole,
-        situation: session.situation,
+        situation: scenario.situation,
         language,
         stage: userTurns,
+        trainingType: session.trainingType ?? 'feedback',
+        scenarioId: scenario.id,
       },
       updated
     );
@@ -87,7 +94,8 @@ export const Roleplay = () => {
           </div>
         </div>
 
-        <p className="mb-4 rounded-2xl bg-mist px-4 py-3 text-sm text-muted">{t.roleplay.scenarioLine}</p>
+        <p className="mb-2 rounded-2xl bg-mist px-4 py-3 text-sm text-muted">{scenario.situation}</p>
+        <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-primary">{curriculum.title} · {scenario.title}</p>
 
         <RoleplayChat
           messages={messages}

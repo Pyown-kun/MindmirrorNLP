@@ -41,11 +41,16 @@ export const TrainingProvider = ({ children }: { children: ReactNode }) => {
   const stored = hasConsent ? loadTrainingData<TrainingSession>() : null;
   const [step, setStep] = useState<Step>('welcome');
   const [session, setSession] = useState<TrainingSession>(() => ({
-    ...(stored?.session ?? createEmptySession()),
+    ...createEmptySession(),
+    ...(stored?.session ?? {}),
     language,
     // Names are intentionally not restored from browser storage.
     userName: '',
   }));
+
+  useEffect(() => {
+    setSession((prev) => prev.language === language ? prev : { ...prev, language });
+  }, [language]);
 
   useEffect(() => {
     if (hasConsent) {

@@ -52,6 +52,8 @@ export interface RoleplayMessage {
 }
 
 export interface ScenarioContext {
+  trainingType?: TrainingType;
+  scenarioId?: string;
   characterName: string;
   characterRole: string;
   situation: string;
@@ -78,6 +80,8 @@ export interface TrainingSession {
   userName: string;
   language: Language;
   trainingType: TrainingType | null;
+  curriculumId: string;
+  scenarioId: string;
   person: string;
   situation: string;
   emotion: Emotion | null;
@@ -93,6 +97,8 @@ export const createEmptySession = (): TrainingSession => ({
   userName: '',
   language: 'en',
   trainingType: null,
+  curriculumId: '',
+  scenarioId: '',
   person: '',
   situation: '',
   emotion: null,

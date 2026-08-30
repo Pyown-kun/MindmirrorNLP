@@ -230,3 +230,23 @@ MindMirror includes an opt-in privacy notice and local data controls:
 - No profiling, advertising, or data-selling functionality is included.
 - The current AI services are rule-based and run without an external API.
 
+
+## Demo roles & protected curriculum editing
+
+The demo now has two roles:
+
+- **User** — can run training, choose language and scenarios, but has no curriculum editing controls.
+- **Admin** — enters the protected `/admin` portal and can edit/publish curriculum content per language and training type.
+
+Demo admin credentials:
+
+- Email: `admin@mindmirror.demo`
+- Password: `Admin123!`
+
+### Why `/admin` instead of an edit button for users?
+
+The professional pattern is a separate admin portal with role-based access control. In production, `/admin` should be protected by SSO/OIDC and server-side authorization. The localStorage login in this demo is only a UX/prototype simulation and is **not** a security boundary.
+
+### Multilingual dialogue
+
+Curriculum is now stored independently for `en`, `id`, and `nl`. Participant-facing roleplay dialogue is loaded from the active language version, so changing the language before starting a training changes the scenario situation, character role, and every dialogue response consistently.
