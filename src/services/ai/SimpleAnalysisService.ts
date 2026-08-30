@@ -1,4 +1,3 @@
-
 import type {
   AnalysisInput,
   AnalysisResult,
@@ -15,7 +14,6 @@ import { getCurriculumModule } from '../../curriculum/modules';
 import {
   CLARIFYING_KEYWORDS,
   EMPATHY_KEYWORDS,
-  PATTERN_KEYWORDS,
   findMatchedKeywords,
   splitSentences,
 } from '../../utils/analysisRules';
@@ -29,10 +27,10 @@ import {
  * The analysis works completely offline using:
  * - keyword matching
  * - sentence analysis
- * - simple communication heuristics
+ * - communication heuristics
  *
- * This implementation is intentionally deterministic so it is
- * suitable for the MindMirror demo environment.
+ * The implementation is deterministic so the demo can explain
+ * why a communication pattern or score was detected.
  */
 export class SimpleAnalysisService implements AIAnalysisService {
   /**
@@ -50,7 +48,7 @@ export class SimpleAnalysisService implements AIAnalysisService {
     const keywordGroups = patternRules.keywordGroups[language];
 
     /**
-     * Analyze only the pattern types enabled by the curriculum module.
+     * Analyze only pattern types enabled by the curriculum.
      */
     patternRules.rules.forEach((type) => {
       const keywords = keywordGroups[type];
@@ -59,10 +57,6 @@ export class SimpleAnalysisService implements AIAnalysisService {
         return;
       }
 
-      /**
-       * Normal case:
-       * analyze every detected sentence separately.
-       */
       sentences.forEach((sentence) => {
         const matches = findMatchedKeywords(sentence, keywords);
 
@@ -76,9 +70,7 @@ export class SimpleAnalysisService implements AIAnalysisService {
       });
 
       /**
-       * Fallback:
-       * if splitSentences() returns no sentences,
-       * analyze the complete input instead.
+       * Fallback for text without sentence separators.
        */
       if (sentences.length === 0 && text.trim()) {
         const matches = findMatchedKeywords(text, keywords);
@@ -95,9 +87,6 @@ export class SimpleAnalysisService implements AIAnalysisService {
 
     /**
      * Remove duplicate detections.
-     *
-     * Two detections are considered identical when they have
-     * the same pattern type, matched keyword and source sentence.
      */
     const seen = new Set<string>();
 
@@ -195,9 +184,9 @@ export class SimpleAnalysisService implements AIAnalysisService {
   }
 
   /**
-   * Analyze the participant's communication during roleplay.
+   * Analyze participant communication during roleplay.
    *
-   * Produces five dimensions:
+   * Five dimensions are calculated:
    * - Empathy
    * - Specificity
    * - Clarity
@@ -206,71 +195,468 @@ export class SimpleAnalysisService implements AIAnalysisService {
    *
    * Scores are normalized to 0–100.
    */
-  analyzeConversation(messages: RoleplayMessage[], language: Language): CommunicationAnalysis {
-    const userMessages = messages.filter(m => m.speaker === 'user');
-    const turns = userMessages.map(m => m.text);
-    const evidence = buildConversationEvidence(turns, language);
+  analyzeConversation(
+    messages: RoleplayMessage[],
+    language: Language
+  ): CommunicationAnalysis {
+    const userMessages = messages.filter(
+      (message) => message.speaker === 'user'
+    );
+
+    const turns = userMessages.map((message) => message.text);
+
+    const evidence = buildConversationEvidence(
+      turns,
+      language
+    );
 
     const specificity = clampScore(
-      20 + evidence.progression * 55 + Math.min(evidence.concreteDetails * 5, 20)
+      20 +
+        evidence.progression * 55 +
+        Math.min(evidence.concreteDetails * 5, 20)
     );
-    const empathy = clampScore(
-      45 + Math.min(evidence.empathySignals * 12, 35) - Math.min(evidence.judgmentSignals * 8, 20)
-    );
-    const clarity = clampScore(
-      55 + Math.min(evidence.clarifyingQuestions * 5, 20) + Math.min(evidence.observableBehavior * 5, 15) - Math.min(evidence.assumptionSignals * 7, 21)
-    );
-    const nlpPractice = clampScore(
-      35 + evidence.progression * 45 + Math.min(evidence.clarifyingQuestions * 4, 20) - evidence.generalizationSignals * 6 - evidence.judgmentSignals * 5
-    );
-    const selfAwareness = clampScore(
-      50 + evidence.progression * 30 + evidence.openQuestions * 4 + evidence.empathySignals * 4 - evidence.assumptionSignals * 5
-    );
-    const overall = Math.round(
-      specificity * 0.30 + nlpPractice * 0.30 + clarity * 0.15 + empathy * 0.10 + selfAwareness * 0.15
-    );
-    return { empathy: Math.round(empathy), specificity: Math.round(specificity), clarity: Math.round(clarity), nlpPractice: Math.round(nlpPractice), selfAwareness: Math.round(selfAwareness), overall, evidence };
-  }
 
+    const empathy = clampScore(
+      45 +
+        Math.min(evidence.empathySignals * 12, 35) -
+        Math.min(evidence.judgmentSignals * 8, 20)
+    );
+
+    const clarity = clampScore(
+      55 +
+        Math.min(evidence.clarifyingQuestions * 5, 20) +
+        Math.min(evidence.observableBehavior * 5, 15) -
+        Math.min(evidence.assumptionSignals * 7, 21)
+    );
+
+    const nlpPractice = clampScore(
+      35 +
+        evidence.progression * 45 +
+        Math.min(evidence.clarifyingQuestions * 4, 20) -
+        evidence.generalizationSignals * 6 -
+        evidence.judgmentSignals * 5
+    );
+
+    const selfAwareness = clampScore(
+      50 +
+        evidence.progression * 30 +
+        evidence.openQuestions * 4 +
+        evidence.empathySignals * 4 -
+        evidence.assumptionSignals * 5
+    );
+
+    const overall = Math.round(
+      specificity * 0.3 +
+        nlpPractice * 0.3 +
+        clarity * 0.15 +
+        empathy * 0.1 +
+        selfAwareness * 0.15
+    );
+
+    return {
+      empathy: Math.round(empathy),
+      specificity: Math.round(specificity),
+      clarity: Math.round(clarity),
+      nlpPractice: Math.round(nlpPractice),
+      selfAwareness: Math.round(selfAwareness),
+      overall,
+      evidence,
+    };
+  }
 }
 
-function buildConversationEvidence(turns: string[], language: Language) {
-  const ev = { broadToSpecific: 0, concreteDetails: 0, personOrRole: 0, timeOrPlace: 0, observableBehavior: 0, clarifyingQuestions: 0, openQuestions: 0, closedQuestions: 0, empathySignals: 0, judgmentSignals: 0, assumptionSignals: 0, generalizationSignals: 0, progression: 0, highlights: [] as string[] };
+/**
+ * Build measurable communication evidence.
+ *
+ * IMPORTANT:
+ * Pattern detection itself remains centralized in analyzeMindset().
+ * This function only needs the numeric evidence required for scoring.
+ */
+function buildConversationEvidence(
+  turns: string[],
+  language: Language
+) {
+  const ev = {
+    broadToSpecific: 0,
+    concreteDetails: 0,
+    personOrRole: 0,
+    timeOrPlace: 0,
+    observableBehavior: 0,
+    clarifyingQuestions: 0,
+    openQuestions: 0,
+    closedQuestions: 0,
+    empathySignals: 0,
+    judgmentSignals: 0,
+    assumptionSignals: 0,
+    generalizationSignals: 0,
+    progression: 0,
+    highlights: [] as string[],
+  };
+
   let priorSpecificity = 0;
+
   turns.forEach((text, index) => {
-    const t = text.toLowerCase();
-    const q = /[?]$/.test(t) || /^(who|what|when|where|which|how|why|apa|siapa|kapan|di mana|mana|bagaimana|mengapa|wat|wie|wanneer|waar|welk|hoe|waarom)\b/.test(t);
+    const t = text.toLowerCase().trim();
+
+    /**
+     * ---------------------------------------------------------
+     * QUESTION DETECTION
+     * ---------------------------------------------------------
+     */
+    const q =
+      /[?]$/.test(t) ||
+      /^(who|what|when|where|which|how|why|apa|siapa|kapan|di mana|mana|bagaimana|mengapa|wat|wie|wanneer|waar|welk|hoe|waarom)\b/.test(
+        t
+      );
+
+    /**
+     * ---------------------------------------------------------
+     * SPECIFICITY SIGNALS
+     *
+     * 0 = no signal
+     * 1 = person / role
+     * 2 = time / place
+     * 3 = observable behavior
+     * 4 = concrete situation
+     * ---------------------------------------------------------
+     */
     const specific = [
-      /\b(who|siapa|wie|manager|manajer|team|tim|client|klien|colleague|rekan)\b/.test(t),
-      /\b(when|where|kapan|di mana|wanneer|waar|yesterday|today|tomorrow|kemarin|hari ini|besok|gisteren|vandaag|morgen)\b/.test(t),
-      /\b(said|say|did|happened|interrupted|sent|wrote|mengatakan|terjadi|menyela|mengirim|menulis|zei|gebeurde|onderbrak)\b/.test(t),
-      /\b(meeting|rapat|project|proyek|deadline|meeting|client|klien)\b/.test(t)
+      /\b(who|siapa|wie|manager|manajer|team|tim|client|klien|colleague|rekan|manager|werknemer)\b/.test(
+        t
+      ),
+
+      /\b(when|where|kapan|di mana|wanneer|waar|yesterday|today|tomorrow|kemarin|hari ini|besok|gisteren|vandaag|morgen)\b/.test(
+        t
+      ),
+
+      /\b(said|say|did|happened|interrupted|sent|wrote|mengatakan|terjadi|menyela|mengirim|menulis|zei|gebeurde|onderbrak|stuurde)\b/.test(
+        t
+      ),
+
+      /\b(meeting|rapat|project|proyek|deadline|client|klien|task|tugas|situation|situasi|taak|situatie)\b/.test(
+        t
+      ),
     ];
+
     const level = specific.filter(Boolean).length;
-    if (q) ev.clarifyingQuestions++;
-    if (/\b(tell me|tell me more|what happened|ceritakan|jelaskan|apa yang terjadi|vertel|wat gebeurde|hoe)\b/.test(t)) ev.openQuestions++;
-    if (/^(so|are|is|do|did|will|jadi|apakah|benarkah|dus|is het|klopt)\b/.test(t)) ev.closedQuestions++;
-    ev.personOrRole += specific[0] ? 1 : 0; ev.timeOrPlace += specific[1] ? 1 : 0; ev.observableBehavior += specific[2] ? 1 : 0; ev.concreteDetails += level;
-    ev.empathySignals += /\b(understand|sounds|must be|frustrat|concern|paham|mengerti|frustrasi|khawatir|begrijp|klinkt|zorgelijk)\b/.test(t) ? 1 : 0;
-    ev.judgmentSignals += /\b(lazy|careless|incompetent|stupid|malas|ceroboh|tidak kompeten|bodoh|lui|onbekwaam|dom)\b/.test(t) ? 1 : 0;
-    ev.assumptionSignals += /\b(obviously|clearly|probably|i assume|pasti|jelas|mungkin dia|saya kira|tentu|waarschijnlijk|duidelijk|ik neem aan)\b/.test(t) ? 1 : 0;
-    ev.generalizationSignals += (t.match(/\b(always|never|everyone|nobody|selalu|tidak pernah|semua orang|tidak ada yang|altijd|nooit|iedereen|niemand)\b/g) || []).length;
-    if (level > priorSpecificity && index > 0) ev.broadToSpecific++;
-    priorSpecificity = Math.max(priorSpecificity, level);
+
+    /**
+     * ---------------------------------------------------------
+     * CLARIFYING KEYWORDS
+     * ---------------------------------------------------------
+     *
+     * Uses the centralized language-specific rules from
+     * analysisRules.ts.
+     */
+    const clarifyingMatches = findMatchedKeywords(
+      t,
+      CLARIFYING_KEYWORDS[language]
+    );
+
+    /**
+     * ---------------------------------------------------------
+     * EMPATHY KEYWORDS
+     * ---------------------------------------------------------
+     *
+     * Uses the centralized language-specific rules from
+     * analysisRules.ts.
+     */
+    const empathyMatches = findMatchedKeywords(
+      t,
+      EMPATHY_KEYWORDS[language]
+    );
+
+    /**
+     * ---------------------------------------------------------
+     * CLARIFYING QUESTIONS
+     * ---------------------------------------------------------
+     */
+    if (q || clarifyingMatches.length > 0) {
+      ev.clarifyingQuestions += Math.max(
+        1,
+        clarifyingMatches.length
+      );
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * OPEN QUESTIONS
+     * ---------------------------------------------------------
+     */
+    if (
+      /\b(tell me|tell me more|what happened|what exactly happened|ceritakan|jelaskan|apa yang terjadi|ceritakan lebih lanjut|vertel|wat gebeurde|hoe)\b/.test(
+        t
+      )
+    ) {
+      ev.openQuestions++;
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * CLOSED QUESTIONS
+     * ---------------------------------------------------------
+     */
+    if (
+      /^(so|are|is|do|did|will|jadi|apakah|benarkah|dus|is het|klopt)\b/.test(
+        t
+      )
+    ) {
+      ev.closedQuestions++;
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * SPECIFICITY EVIDENCE
+     * ---------------------------------------------------------
+     */
+    ev.personOrRole += specific[0] ? 1 : 0;
+    ev.timeOrPlace += specific[1] ? 1 : 0;
+    ev.observableBehavior += specific[2] ? 1 : 0;
+    ev.concreteDetails += level;
+
+    /**
+     * ---------------------------------------------------------
+     * EMPATHY
+     * ---------------------------------------------------------
+     *
+     * Centralized language-specific keyword matching.
+     */
+    ev.empathySignals += empathyMatches.length;
+
+    /**
+     * ---------------------------------------------------------
+     * PATTERN EVIDENCE
+     * ---------------------------------------------------------
+     *
+     * Instead of directly accessing:
+     *
+     * PATTERN_KEYWORDS[language].generalization
+     * PATTERN_KEYWORDS[language].judgment
+     * PATTERN_KEYWORDS[language].assumption
+     *
+     * we use the same curriculum pattern engine that powers
+     * analyzeMindset().
+     *
+     * This avoids PatternType/property mismatch errors while
+     * keeping pattern detection centralized.
+     */
+    const patternEvidence = detectPatternEvidence(
+      t,
+      language
+    );
+
+    ev.generalizationSignals += patternEvidence.generalization;
+    ev.judgmentSignals += patternEvidence.judgment;
+    ev.assumptionSignals += patternEvidence.assumption;
+
+    /**
+     * ---------------------------------------------------------
+     * PROGRESSION
+     * ---------------------------------------------------------
+     *
+     * Detect whether the participant moves toward more specific
+     * information compared with the previous turn.
+     */
+    if (level > priorSpecificity && index > 0) {
+      ev.broadToSpecific++;
+    }
+
+    priorSpecificity = Math.max(
+      priorSpecificity,
+      level
+    );
   });
-  const opportunities = Math.max(turns.length - 1, 1);
-  ev.progression = clampScore((ev.broadToSpecific / opportunities) * 100) / 100;
-  if (ev.personOrRole) ev.highlights.push(tx(language, 'You made a person or role explicit.', 'Anda memperjelas orang atau peran yang terlibat.', 'Je maakte een persoon of rol expliciet.'));
-  if (ev.timeOrPlace) ev.highlights.push(tx(language, 'You anchored the conversation in a time or situation.', 'Anda mengaitkan percakapan dengan waktu atau situasi tertentu.', 'Je verankerde het gesprek in een tijd of situatie.'));
-  if (ev.observableBehavior) ev.highlights.push(tx(language, 'You moved toward observable behavior.', 'Anda mengarahkan percakapan ke perilaku yang dapat diamati.', 'Je ging richting waarneembaar gedrag.'));
-  if (ev.generalizationSignals) ev.highlights.push(tx(language, 'You used a broad/general statement that could be explored further.', 'Anda menggunakan pernyataan umum yang masih bisa digali lebih lanjut.', 'Je gebruikte een brede uitspraak die verder onderzocht kan worden.'));
+
+  /**
+   * ---------------------------------------------------------
+   * NORMALIZED PROGRESSION
+   * ---------------------------------------------------------
+   */
+  const opportunities = Math.max(
+    turns.length - 1,
+    1
+  );
+
+  ev.progression =
+    clampScore(
+      (ev.broadToSpecific / opportunities) * 100
+    ) / 100;
+
+  /**
+   * ---------------------------------------------------------
+   * HUMAN-READABLE HIGHLIGHTS
+   * ---------------------------------------------------------
+   */
+
+  if (ev.personOrRole) {
+    ev.highlights.push(
+      tx(
+        language,
+        'You made a person or role explicit.',
+        'Anda memperjelas orang atau peran yang terlibat.',
+        'Je maakte een persoon of rol expliciet.'
+      )
+    );
+  }
+
+  if (ev.timeOrPlace) {
+    ev.highlights.push(
+      tx(
+        language,
+        'You anchored the conversation in a time or situation.',
+        'Anda mengaitkan percakapan dengan waktu atau situasi tertentu.',
+        'Je verankerde het gesprek in een tijd of situatie.'
+      )
+    );
+  }
+
+  if (ev.observableBehavior) {
+    ev.highlights.push(
+      tx(
+        language,
+        'You moved toward observable behavior.',
+        'Anda mengarahkan percakapan ke perilaku yang dapat diamati.',
+        'Je ging richting waarneembaar gedrag.'
+      )
+    );
+  }
+
+  if (ev.clarifyingQuestions) {
+    ev.highlights.push(
+      tx(
+        language,
+        'You asked clarifying questions to explore the situation.',
+        'Anda mengajukan pertanyaan klarifikasi untuk menggali situasi.',
+        'Je stelde verhelderende vragen om de situatie te onderzoeken.'
+      )
+    );
+  }
+
+  if (ev.empathySignals) {
+    ev.highlights.push(
+      tx(
+        language,
+        'You acknowledged the other person’s perspective or experience.',
+        'Anda menunjukkan bahwa Anda memahami perspektif atau pengalaman lawan bicara.',
+        'Je erkende het perspectief of de ervaring van de ander.'
+      )
+    );
+  }
+
+  if (ev.generalizationSignals) {
+    ev.highlights.push(
+      tx(
+        language,
+        'You used a broad or generalized statement that could be explored further.',
+        'Anda menggunakan pernyataan umum yang masih bisa digali lebih lanjut.',
+        'Je gebruikte een brede of algemene uitspraak die verder onderzocht kan worden.'
+      )
+    );
+  }
+
+  if (ev.judgmentSignals) {
+    ev.highlights.push(
+      tx(
+        language,
+        'You used language that may label or judge the other person.',
+        'Anda menggunakan bahasa yang dapat memberi label atau menilai orang lain.',
+        'Je gebruikte taal die de ander kan labelen of beoordelen.'
+      )
+    );
+  }
+
+  if (ev.assumptionSignals) {
+    ev.highlights.push(
+      tx(
+        language,
+        'You made an assumption about what the other person thinks, wants, or feels.',
+        'Anda membuat asumsi tentang apa yang dipikirkan, diinginkan, atau dirasakan orang lain.',
+        'Je maakte een aanname over wat de ander denkt, wil of voelt.'
+      )
+    );
+  }
+
   return ev;
 }
 
-function tx(language: Language, en: string, id: string, nl: string) { return language === 'id' ? id : language === 'nl' ? nl : en; }
+/**
+ * Detect communication pattern evidence for scoring.
+ *
+ * The curriculum module remains the source of truth for which
+ * patterns are enabled and which keywords belong to each type.
+ */
+function detectPatternEvidence(
+  text: string,
+  language: Language
+): {
+  generalization: number;
+  judgment: number;
+  assumption: number;
+} {
+  const result = {
+    generalization: 0,
+    judgment: 0,
+    assumption: 0,
+  };
+
+  /**
+   * Use the default curriculum's pattern configuration.
+   * This is the same configuration consumed by analyzeMindset().
+   */
+  const module = getCurriculumModule(null);
+
+  const patternRules = module.patternRules;
+  const keywordGroups = patternRules.keywordGroups[language];
+
+  patternRules.rules.forEach((type) => {
+    const keywords = keywordGroups[type];
+
+    if (!keywords || keywords.length === 0) {
+      return;
+    }
+
+    const matches = findMatchedKeywords(
+      text,
+      keywords
+    );
+
+    if (type === 'generalization') {
+      result.generalization += matches.length;
+    }
+
+    if (type === 'judgment') {
+      result.judgment += matches.length;
+    }
+
+    if (type === 'assumption') {
+      result.assumption += matches.length;
+    }
+  });
+
+  return result;
+}
+
+/**
+ * Localized helper used by communication feedback.
+ */
+function tx(
+  language: Language,
+  en: string,
+  id: string,
+  nl: string
+): string {
+  return language === 'id'
+    ? id
+    : language === 'nl'
+      ? nl
+      : en;
+}
 
 /**
  * Clamp a score to the valid 0–100 range.
  */
 const clampScore = (value: number): number =>
-  Math.max(0, Math.min(100, value));
+  Math.max(
+    0,
+    Math.min(100, value)
+  );
