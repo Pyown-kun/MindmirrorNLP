@@ -1,4 +1,5 @@
-import { FormEvent, useState } from 'react';
+import type { FormEvent } from 'react';
+import { useState } from 'react';
 import { ArrowRight, BookOpen, LockKeyhole, ShieldCheck } from 'lucide-react';
 
 const ADMIN_SESSION_KEY = 'mindmirror-admin-session';
