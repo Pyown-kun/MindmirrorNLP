@@ -1,14 +1,17 @@
+
 import type {
   AnalysisInput,
   AnalysisResult,
   CommunicationAnalysis,
   DetectedPattern,
   Language,
-  PatternType,
   RoleplayMessage,
 } from '../../types/training';
+
 import type { AIAnalysisService } from './AIService';
+
 import { getCurriculumModule } from '../../curriculum/modules';
+
 import {
   CLARIFYING_KEYWORDS,
   EMPATHY_KEYWORDS,
@@ -20,41 +23,95 @@ import {
 /**
  * SimpleAnalysisService
  * ----------------------
- * A transparent, rule-based implementation of AIAnalysisService.
- * No external API or model is required — everything is keyword
- * matching and simple heuristics, so the demo works fully offline.
+ * Transparent, rule-based implementation of AIAnalysisService.
+ *
+ * No external API or AI model is required.
+ * The analysis works completely offline using:
+ * - keyword matching
+ * - sentence analysis
+ * - simple communication heuristics
+ *
+ * This implementation is intentionally deterministic so it is
+ * suitable for the MindMirror demo environment.
  */
 export class SimpleAnalysisService implements AIAnalysisService {
+  /**
+   * Detect mindset patterns from participant text.
+   */
   analyzeMindset(input: AnalysisInput): AnalysisResult {
     const { text, language } = input;
+
     const sentences = splitSentences(text);
     const patterns: DetectedPattern[] = [];
-    const moduleRules = getCurriculumModule(input.moduleId ?? null).patternRules.keywordGroups[language];
-    const keywordSet = moduleRules;
 
-    getCurriculumModule(input.moduleId ?? null).patternRules.rules.forEach((type) => {
-      const keywords = keywordSet[type];
+    const module = getCurriculumModule(input.moduleId ?? null);
+    const patternRules = module.patternRules;
+
+    const keywordGroups = patternRules.keywordGroups[language];
+
+    /**
+     * Analyze only the pattern types enabled by the curriculum module.
+     */
+    patternRules.rules.forEach((type) => {
+      const keywords = keywordGroups[type];
+
+      if (!keywords || keywords.length === 0) {
+        return;
+      }
+
+      /**
+       * Normal case:
+       * analyze every detected sentence separately.
+       */
       sentences.forEach((sentence) => {
         const matches = findMatchedKeywords(sentence, keywords);
+
         matches.forEach((matchedText) => {
-          patterns.push({ type, matchedText, sourceSentence: sentence });
+          patterns.push({
+            type,
+            matchedText,
+            sourceSentence: sentence,
+          });
         });
       });
 
-      // Fallback: if there were no sentence boundaries detected, scan whole text
-      if (sentences.length === 0) {
+      /**
+       * Fallback:
+       * if splitSentences() returns no sentences,
+       * analyze the complete input instead.
+       */
+      if (sentences.length === 0 && text.trim()) {
         const matches = findMatchedKeywords(text, keywords);
+
         matches.forEach((matchedText) => {
-          patterns.push({ type, matchedText, sourceSentence: text });
+          patterns.push({
+            type,
+            matchedText,
+            sourceSentence: text,
+          });
         });
       }
     });
 
-    // De-duplicate identical (type, matchedText, sentence) triples
+    /**
+     * Remove duplicate detections.
+     *
+     * Two detections are considered identical when they have
+     * the same pattern type, matched keyword and source sentence.
+     */
     const seen = new Set<string>();
-    const deduped = patterns.filter((p) => {
-      const key = `${p.type}|${p.matchedText}|${p.sourceSentence}`;
-      if (seen.has(key)) return false;
+
+    const deduped = patterns.filter((pattern) => {
+      const key = [
+        pattern.type,
+        pattern.matchedText,
+        pattern.sourceSentence,
+      ].join('|');
+
+      if (seen.has(key)) {
+        return false;
+      }
+
       seen.add(key);
       return true;
     });
@@ -65,68 +122,230 @@ export class SimpleAnalysisService implements AIAnalysisService {
     };
   }
 
-  generateReflection(input: { initialThought: string; messages: RoleplayMessage[]; language: Language }): string {
-    const last = [...input.messages].reverse().find((m) => m.speaker === 'user')?.text ?? '';
-    return `${input.initialThought} → ${last}`;
+  /**
+   * Generate reflection comparison between the participant's
+   * initial thought and their latest response.
+   */
+  generateReflection(input: {
+    initialThought: string;
+    messages: RoleplayMessage[];
+    language: Language;
+  }): string {
+    const lastUserMessage =
+      [...input.messages]
+        .reverse()
+        .find((message) => message.speaker === 'user')
+        ?.text ?? '';
+
+    const initialThought = input.initialThought.trim();
+    const laterThought = lastUserMessage.trim();
+
+    if (!initialThought && !laterThought) {
+      return '';
+    }
+
+    if (!laterThought) {
+      return initialThought;
+    }
+
+    if (!initialThought) {
+      return laterThought;
+    }
+
+    return `${initialThought} → ${laterThought}`;
   }
 
-  generateAhaMoment(input: { initialThought: string; laterResponse: string; language: Language }): string {
-    return input.laterResponse.trim() ? `${input.initialThought} → ${input.laterResponse}` : input.initialThought;
+  /**
+   * Generate the Aha Moment comparison.
+   */
+  generateAhaMoment(input: {
+    initialThought: string;
+    laterResponse: string;
+    language: Language;
+  }): string {
+    const initialThought = input.initialThought.trim();
+    const laterResponse = input.laterResponse.trim();
+
+    if (!initialThought && !laterResponse) {
+      return '';
+    }
+
+    if (!laterResponse) {
+      return initialThought;
+    }
+
+    if (!initialThought) {
+      return laterResponse;
+    }
+
+    return `${initialThought} → ${laterResponse}`;
   }
 
-  generateTakeaway(input: { language: Language; moduleId?: string }): string {
-    return getCurriculumModule(input.moduleId ?? null).takeaway.practicalChallenge[input.language];
+  /**
+   * Return the practical challenge configured for the selected
+   * curriculum module and language.
+   */
+  generateTakeaway(input: {
+    language: Language;
+    moduleId?: string;
+  }): string {
+    const module = getCurriculumModule(input.moduleId ?? null);
+
+    return module.takeaway.practicalChallenge[input.language];
   }
 
-  analyzeConversation(messages: RoleplayMessage[], language: Language): CommunicationAnalysis {
-    const userMessages = messages.filter((m) => m.speaker === 'user');
-    const userText = userMessages.map((m) => m.text).join(' ');
+  /**
+   * Analyze the participant's communication during roleplay.
+   *
+   * Produces five dimensions:
+   * - Empathy
+   * - Specificity
+   * - Clarity
+   * - NLP Practice
+   * - Self-Awareness
+   *
+   * Scores are normalized to 0–100.
+   */
+  analyzeConversation(
+    messages: RoleplayMessage[],
+    language: Language
+  ): CommunicationAnalysis {
+    const userMessages = messages.filter(
+      (message) => message.speaker === 'user'
+    );
+
+    const userText = userMessages
+      .map((message) => message.text)
+      .join(' ');
+
+    /**
+     * Avoid division by zero when there are no user messages.
+     */
     const totalUserMessages = Math.max(userMessages.length, 1);
 
-    // --- Empathy: how many user turns contained empathy language ---
-    const empathyHits = userMessages.filter(
-      (m) => findMatchedKeywords(m.text, EMPATHY_KEYWORDS[language]).length > 0
-    ).length;
-    const empathy = clampScore(40 + (empathyHits / totalUserMessages) * 60);
+    // ---------------------------------------------------------
+    // EMPATHY
+    // ---------------------------------------------------------
 
-    // --- Specificity: clarifying questions asked + avoidance of generalizations ---
-    const clarifyingHits = userMessages.filter(
-      (m) => findMatchedKeywords(m.text, CLARIFYING_KEYWORDS[language]).length > 0
+    const empathyHits = userMessages.filter(
+      (message) =>
+        findMatchedKeywords(
+          message.text,
+          EMPATHY_KEYWORDS[language]
+        ).length > 0
     ).length;
+
+    const empathy = clampScore(
+      40 + (empathyHits / totalUserMessages) * 60
+    );
+
+    // ---------------------------------------------------------
+    // SPECIFICITY
+    // ---------------------------------------------------------
+
+    const clarifyingHits = userMessages.filter(
+      (message) =>
+        findMatchedKeywords(
+          message.text,
+          CLARIFYING_KEYWORDS[language]
+        ).length > 0
+    ).length;
+
     const generalizationHits = findMatchedKeywords(
       userText,
       PATTERN_KEYWORDS[language].generalization
     ).length;
+
     const specificity = clampScore(
-      35 + (clarifyingHits / totalUserMessages) * 55 - generalizationHits * 8
+      35 +
+        (clarifyingHits / totalUserMessages) * 55 -
+        generalizationHits * 8
     );
 
-    // --- Clarity: heuristic on sentence length & question structure ---
+    // ---------------------------------------------------------
+    // CLARITY
+    // ---------------------------------------------------------
+
     const sentences = splitSentences(userText);
+
     const avgLength =
       sentences.length > 0
-        ? sentences.reduce((sum, s) => sum + s.split(/\s+/).length, 0) / sentences.length
+        ? sentences.reduce(
+            (sum, sentence) =>
+              sum + countWords(sentence),
+            0
+          ) / sentences.length
         : 0;
-    const questionCount = userMessages.filter((m) => m.text.trim().endsWith('?')).length;
+
+    const questionCount = userMessages.filter(
+      (message) => message.text.trim().endsWith('?')
+    ).length;
+
     let clarity = 50;
+
     if (avgLength > 0) {
-      // Sweet spot: 5–18 words per sentence reads as clear, not clipped or rambling.
-      const distanceFromIdeal = Math.min(Math.abs(avgLength - 11), 15);
-      clarity += (15 - distanceFromIdeal) * 2.2;
+      /**
+       * Ideal sentence length:
+       * approximately 5–18 words.
+       *
+       * 11 words is treated as the center point.
+       */
+      const distanceFromIdeal = Math.min(
+        Math.abs(avgLength - 11),
+        15
+      );
+
+      clarity +=
+        (15 - distanceFromIdeal) * 2.2;
     }
+
+    /**
+     * Asking questions is treated as a positive indicator
+     * of conversational clarity.
+     */
     clarity += Math.min(questionCount * 5, 20);
+
     clarity = clampScore(clarity);
 
-    // --- NLP Practice: avoiding judgment/generalization + asking questions ---
-    const judgmentHits = findMatchedKeywords(userText, PATTERN_KEYWORDS[language].judgment).length;
-    const assumptionHits = findMatchedKeywords(userText, PATTERN_KEYWORDS[language].assumption).length;
+    // ---------------------------------------------------------
+    // NLP PRACTICE
+    // ---------------------------------------------------------
+
+    const judgmentHits = findMatchedKeywords(
+      userText,
+      PATTERN_KEYWORDS[language].judgment
+    ).length;
+
+    const assumptionHits = findMatchedKeywords(
+      userText,
+      PATTERN_KEYWORDS[language].assumption
+    ).length;
+
     const nlpPractice = clampScore(
-      55 + questionCount * 6 - judgmentHits * 12 - generalizationHits * 8 - assumptionHits * 8
+      55 +
+        questionCount * 6 -
+        judgmentHits * 12 -
+        generalizationHits * 8 -
+        assumptionHits * 8
     );
 
-    // --- Self-Awareness: rewarded elsewhere (reflection/reframe steps) but here
-    // we account for conversational signs of reflection (e.g. empathy + questions) ---
-    const selfAwareness = clampScore(50 + empathyHits * 8 + clarifyingHits * 6);
+    // ---------------------------------------------------------
+    // SELF-AWARENESS
+    // ---------------------------------------------------------
+
+    /**
+     * Self-awareness is estimated from conversational
+     * behaviors such as empathy and clarification.
+     */
+    const selfAwareness = clampScore(
+      50 +
+        empathyHits * 8 +
+        clarifyingHits * 6
+    );
+
+    // ---------------------------------------------------------
+    // OVERALL SCORE
+    // ---------------------------------------------------------
 
     const overall = Math.round(
       empathy * 0.25 +
@@ -147,4 +366,21 @@ export class SimpleAnalysisService implements AIAnalysisService {
   }
 }
 
-const clampScore = (value: number): number => Math.max(0, Math.min(100, value));
+/**
+ * Count words safely.
+ */
+const countWords = (text: string): number => {
+  const normalized = text.trim();
+
+  if (!normalized) {
+    return 0;
+  }
+
+  return normalized.split(/\s+/).length;
+};
+
+/**
+ * Clamp a score to the valid 0–100 range.
+ */
+const clampScore = (value: number): number =>
+  Math.max(0, Math.min(100, value));
