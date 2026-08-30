@@ -78,7 +78,32 @@ export interface AnalysisResult { patterns: DetectedPattern[]; isClean: boolean;
 export type MessageSpeaker = 'user' | 'character';
 export interface RoleplayMessage { id: string; speaker: MessageSpeaker; text: string; timestamp: number; }
 export interface ScenarioContext { characterName: string; characterRole: string; situation: string; language: Language; stage: number; moduleId?: string; }
-export interface CommunicationAnalysis { empathy: number; specificity: number; clarity: number; nlpPractice: number; selfAwareness: number; overall: number; }
+export interface ConversationEvidence {
+  broadToSpecific: number;
+  concreteDetails: number;
+  personOrRole: number;
+  timeOrPlace: number;
+  observableBehavior: number;
+  clarifyingQuestions: number;
+  openQuestions: number;
+  closedQuestions: number;
+  empathySignals: number;
+  judgmentSignals: number;
+  assumptionSignals: number;
+  generalizationSignals: number;
+  progression: number;
+  highlights: string[];
+}
+
+export interface CommunicationAnalysis {
+  empathy: number;
+  specificity: number;
+  clarity: number;
+  nlpPractice: number;
+  selfAwareness: number;
+  overall: number;
+  evidence?: ConversationEvidence;
+}
 export interface Insight { kind: 'strength' | 'improvement' | 'metaModel'; title: string; body: string; }
 
 export interface TrainingSession {

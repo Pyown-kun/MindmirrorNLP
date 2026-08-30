@@ -220,3 +220,16 @@ For the demo, authentication is stored in `sessionStorage` and uses:
 This is intentionally a local demo authentication layer. A production deployment should replace it with a secure backend or identity provider.
 
 After successful login, the user is redirected/reloaded into the Admin Dashboard. Signing out removes the admin session and returns to the participant application.
+
+
+## Chosen usage context
+
+MindMirror is intentionally designed for a **trainer-led 20-minute corporate training session for managers and executives**. The trainer frames the exercise, observes the participant's reflection, and uses the evidence for a short debrief. MindMirror is the experience container, not a replacement for the trainer.
+
+## Interaction and scoring model
+
+The roleplay is driven by conversation evidence rather than a single keyword-to-response lookup. Each participant turn is inspected for moves such as clarification, person/role, time/situation, and observable behaviour. The character response adapts to the move and current interaction stage while remaining grounded in the configured curriculum replies.
+
+Communication scores are derived from observable interaction evidence: progression from broad to specific language, concrete details, clarifying questions, empathy signals, assumptions, judgments, and generalizations. The final score is a summary of that evidence, not a count of question marks or keywords.
+
+The Aha Moment surfaces evidence from the participant's own conversation so the participant can see what changed in their language. The intended outcome is an "I didn't realize I did that" moment, consistent with the hackathon brief's emphasis on patterns being felt rather than memorized.

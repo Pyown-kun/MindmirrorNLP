@@ -39,7 +39,7 @@ export const computeFinalScores = (
     empathy * 0.22 + specificity * 0.22 + clarity * 0.18 + nlpPractice * 0.18 + selfAwareness * 0.2
   );
 
-  return { empathy, specificity, clarity, nlpPractice, selfAwareness, overall };
+  return { empathy, specificity, clarity, nlpPractice, selfAwareness, overall, evidence: conversationAnalysis.evidence };
 };
 
 export interface InsightFlags {

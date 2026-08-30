@@ -20,7 +20,7 @@ const TIP_KEY: Record<PatternType, 'generalizationTip' | 'judgmentTip' | 'assump
 };
 
 export const Analysis = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { session, next } = useTraining();
   const patterns = session.analysisResult?.patterns ?? [];
   const isClean = session.analysisResult?.isClean ?? true;
@@ -53,6 +53,17 @@ export const Analysis = () => {
               ))}
             </div>
           </>
+        )}
+
+        {session.communicationScores?.evidence && (
+          <div className="mt-6 rounded-2xl border border-aqua/20 bg-aqua/5 p-5">
+            <p className="text-xs font-bold uppercase tracking-wide text-aqua">{language === 'id' ? 'BUKTI INTERAKSI' : language === 'nl' ? 'INTERACTIEBEWIJS' : 'INTERACTION EVIDENCE'}</p>
+            <div className="mt-3 space-y-2">
+              {session.communicationScores.evidence.highlights.map((item) => (
+                <div key={item} className="rounded-xl bg-white px-4 py-3 text-sm text-ink">✓ {item}</div>
+              ))}
+            </div>
+          </div>
         )}
 
         <div className="mt-8">

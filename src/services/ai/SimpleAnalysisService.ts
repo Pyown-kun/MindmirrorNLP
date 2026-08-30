@@ -206,178 +206,68 @@ export class SimpleAnalysisService implements AIAnalysisService {
    *
    * Scores are normalized to 0–100.
    */
-  analyzeConversation(
-    messages: RoleplayMessage[],
-    language: Language
-  ): CommunicationAnalysis {
-    const userMessages = messages.filter(
-      (message) => message.speaker === 'user'
-    );
-
-    const userText = userMessages
-      .map((message) => message.text)
-      .join(' ');
-
-    /**
-     * Avoid division by zero when there are no user messages.
-     */
-    const totalUserMessages = Math.max(userMessages.length, 1);
-
-    // ---------------------------------------------------------
-    // EMPATHY
-    // ---------------------------------------------------------
-
-    const empathyHits = userMessages.filter(
-      (message) =>
-        findMatchedKeywords(
-          message.text,
-          EMPATHY_KEYWORDS[language]
-        ).length > 0
-    ).length;
-
-    const empathy = clampScore(
-      40 + (empathyHits / totalUserMessages) * 60
-    );
-
-    // ---------------------------------------------------------
-    // SPECIFICITY
-    // ---------------------------------------------------------
-
-    const clarifyingHits = userMessages.filter(
-      (message) =>
-        findMatchedKeywords(
-          message.text,
-          CLARIFYING_KEYWORDS[language]
-        ).length > 0
-    ).length;
-
-    const generalizationHits = findMatchedKeywords(
-      userText,
-      PATTERN_KEYWORDS[language].generalization
-    ).length;
+  analyzeConversation(messages: RoleplayMessage[], language: Language): CommunicationAnalysis {
+    const userMessages = messages.filter(m => m.speaker === 'user');
+    const turns = userMessages.map(m => m.text);
+    const evidence = buildConversationEvidence(turns, language);
 
     const specificity = clampScore(
-      35 +
-        (clarifyingHits / totalUserMessages) * 55 -
-        generalizationHits * 8
+      20 + evidence.progression * 55 + Math.min(evidence.concreteDetails * 5, 20)
     );
-
-    // ---------------------------------------------------------
-    // CLARITY
-    // ---------------------------------------------------------
-
-    const sentences = splitSentences(userText);
-
-    const avgLength =
-      sentences.length > 0
-        ? sentences.reduce(
-            (sum, sentence) =>
-              sum + countWords(sentence),
-            0
-          ) / sentences.length
-        : 0;
-
-    const questionCount = userMessages.filter(
-      (message) => message.text.trim().endsWith('?')
-    ).length;
-
-    let clarity = 50;
-
-    if (avgLength > 0) {
-      /**
-       * Ideal sentence length:
-       * approximately 5–18 words.
-       *
-       * 11 words is treated as the center point.
-       */
-      const distanceFromIdeal = Math.min(
-        Math.abs(avgLength - 11),
-        15
-      );
-
-      clarity +=
-        (15 - distanceFromIdeal) * 2.2;
-    }
-
-    /**
-     * Asking questions is treated as a positive indicator
-     * of conversational clarity.
-     */
-    clarity += Math.min(questionCount * 5, 20);
-
-    clarity = clampScore(clarity);
-
-    // ---------------------------------------------------------
-    // NLP PRACTICE
-    // ---------------------------------------------------------
-
-    const judgmentHits = findMatchedKeywords(
-      userText,
-      PATTERN_KEYWORDS[language].judgment
-    ).length;
-
-    const assumptionHits = findMatchedKeywords(
-      userText,
-      PATTERN_KEYWORDS[language].assumption
-    ).length;
-
+    const empathy = clampScore(
+      45 + Math.min(evidence.empathySignals * 12, 35) - Math.min(evidence.judgmentSignals * 8, 20)
+    );
+    const clarity = clampScore(
+      55 + Math.min(evidence.clarifyingQuestions * 5, 20) + Math.min(evidence.observableBehavior * 5, 15) - Math.min(evidence.assumptionSignals * 7, 21)
+    );
     const nlpPractice = clampScore(
-      55 +
-        questionCount * 6 -
-        judgmentHits * 12 -
-        generalizationHits * 8 -
-        assumptionHits * 8
+      35 + evidence.progression * 45 + Math.min(evidence.clarifyingQuestions * 4, 20) - evidence.generalizationSignals * 6 - evidence.judgmentSignals * 5
     );
-
-    // ---------------------------------------------------------
-    // SELF-AWARENESS
-    // ---------------------------------------------------------
-
-    /**
-     * Self-awareness is estimated from conversational
-     * behaviors such as empathy and clarification.
-     */
     const selfAwareness = clampScore(
-      50 +
-        empathyHits * 8 +
-        clarifyingHits * 6
+      50 + evidence.progression * 30 + evidence.openQuestions * 4 + evidence.empathySignals * 4 - evidence.assumptionSignals * 5
     );
-
-    // ---------------------------------------------------------
-    // OVERALL SCORE
-    // ---------------------------------------------------------
-
     const overall = Math.round(
-      empathy * 0.25 +
-        specificity * 0.25 +
-        clarity * 0.2 +
-        nlpPractice * 0.2 +
-        selfAwareness * 0.1
+      specificity * 0.30 + nlpPractice * 0.30 + clarity * 0.15 + empathy * 0.10 + selfAwareness * 0.15
     );
-
-    return {
-      empathy: Math.round(empathy),
-      specificity: Math.round(specificity),
-      clarity: Math.round(clarity),
-      nlpPractice: Math.round(nlpPractice),
-      selfAwareness: Math.round(selfAwareness),
-      overall,
-    };
+    return { empathy: Math.round(empathy), specificity: Math.round(specificity), clarity: Math.round(clarity), nlpPractice: Math.round(nlpPractice), selfAwareness: Math.round(selfAwareness), overall, evidence };
   }
+
 }
 
-/**
- * Count words safely.
- */
-const countWords = (text: string): number => {
-  const normalized = text.trim();
+function buildConversationEvidence(turns: string[], language: Language) {
+  const ev = { broadToSpecific: 0, concreteDetails: 0, personOrRole: 0, timeOrPlace: 0, observableBehavior: 0, clarifyingQuestions: 0, openQuestions: 0, closedQuestions: 0, empathySignals: 0, judgmentSignals: 0, assumptionSignals: 0, generalizationSignals: 0, progression: 0, highlights: [] as string[] };
+  let priorSpecificity = 0;
+  turns.forEach((text, index) => {
+    const t = text.toLowerCase();
+    const q = /[?]$/.test(t) || /^(who|what|when|where|which|how|why|apa|siapa|kapan|di mana|mana|bagaimana|mengapa|wat|wie|wanneer|waar|welk|hoe|waarom)\b/.test(t);
+    const specific = [
+      /\b(who|siapa|wie|manager|manajer|team|tim|client|klien|colleague|rekan)\b/.test(t),
+      /\b(when|where|kapan|di mana|wanneer|waar|yesterday|today|tomorrow|kemarin|hari ini|besok|gisteren|vandaag|morgen)\b/.test(t),
+      /\b(said|say|did|happened|interrupted|sent|wrote|mengatakan|terjadi|menyela|mengirim|menulis|zei|gebeurde|onderbrak)\b/.test(t),
+      /\b(meeting|rapat|project|proyek|deadline|meeting|client|klien)\b/.test(t)
+    ];
+    const level = specific.filter(Boolean).length;
+    if (q) ev.clarifyingQuestions++;
+    if (/\b(tell me|tell me more|what happened|ceritakan|jelaskan|apa yang terjadi|vertel|wat gebeurde|hoe)\b/.test(t)) ev.openQuestions++;
+    if (/^(so|are|is|do|did|will|jadi|apakah|benarkah|dus|is het|klopt)\b/.test(t)) ev.closedQuestions++;
+    ev.personOrRole += specific[0] ? 1 : 0; ev.timeOrPlace += specific[1] ? 1 : 0; ev.observableBehavior += specific[2] ? 1 : 0; ev.concreteDetails += level;
+    ev.empathySignals += /\b(understand|sounds|must be|frustrat|concern|paham|mengerti|frustrasi|khawatir|begrijp|klinkt|zorgelijk)\b/.test(t) ? 1 : 0;
+    ev.judgmentSignals += /\b(lazy|careless|incompetent|stupid|malas|ceroboh|tidak kompeten|bodoh|lui|onbekwaam|dom)\b/.test(t) ? 1 : 0;
+    ev.assumptionSignals += /\b(obviously|clearly|probably|i assume|pasti|jelas|mungkin dia|saya kira|tentu|waarschijnlijk|duidelijk|ik neem aan)\b/.test(t) ? 1 : 0;
+    ev.generalizationSignals += (t.match(/\b(always|never|everyone|nobody|selalu|tidak pernah|semua orang|tidak ada yang|altijd|nooit|iedereen|niemand)\b/g) || []).length;
+    if (level > priorSpecificity && index > 0) ev.broadToSpecific++;
+    priorSpecificity = Math.max(priorSpecificity, level);
+  });
+  const opportunities = Math.max(turns.length - 1, 1);
+  ev.progression = clampScore((ev.broadToSpecific / opportunities) * 100) / 100;
+  if (ev.personOrRole) ev.highlights.push(tx(language, 'You made a person or role explicit.', 'Anda memperjelas orang atau peran yang terlibat.', 'Je maakte een persoon of rol expliciet.'));
+  if (ev.timeOrPlace) ev.highlights.push(tx(language, 'You anchored the conversation in a time or situation.', 'Anda mengaitkan percakapan dengan waktu atau situasi tertentu.', 'Je verankerde het gesprek in een tijd of situatie.'));
+  if (ev.observableBehavior) ev.highlights.push(tx(language, 'You moved toward observable behavior.', 'Anda mengarahkan percakapan ke perilaku yang dapat diamati.', 'Je ging richting waarneembaar gedrag.'));
+  if (ev.generalizationSignals) ev.highlights.push(tx(language, 'You used a broad/general statement that could be explored further.', 'Anda menggunakan pernyataan umum yang masih bisa digali lebih lanjut.', 'Je gebruikte een brede uitspraak die verder onderzocht kan worden.'));
+  return ev;
+}
 
-  if (!normalized) {
-    return 0;
-  }
-
-  return normalized.split(/\s+/).length;
-};
+function tx(language: Language, en: string, id: string, nl: string) { return language === 'id' ? id : language === 'nl' ? nl : en; }
 
 /**
  * Clamp a score to the valid 0–100 range.
